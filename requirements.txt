@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+
+# my dependecies
+pandas
+matplotlib
+nltk
+Jinja2
+openai
+requests
