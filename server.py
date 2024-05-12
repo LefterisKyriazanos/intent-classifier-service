@@ -137,11 +137,15 @@ async def intent(query: Item = None):
             raise HTTPException(status_code=400, detail={"label": "TEXT_MISSING", "message": "\"text\" missing from request body."})
         else:
             # intent classification logic 
-            top_three_intents = model.classify_intent(query.text)
-            return JSONResponse(content=top_three_intents)
+            response = model.classify_intent(query.text)
+            # response =  'Error: Malformed Response'
+            if response != 'Error: Malformed Response':
+                return JSONResponse(content=response)
+            else:
+                raise HTTPException(status_code=500, detail= {"label": "INTERNAL_ERROR", "message": "Model output did not adhere to specified format (python list)"})
     except HTTPException as http_error:
-        # Catch HTTPExceptions and let FastAPI handle them
-        # Returns 400 Bad Request server error instead of 500 INTERNAL ERROR in case an HTTP exception happens
+        # re-raise the caught HTTPException, allowing FastAPI to handle it
+        # and generate an appropriate HTTP response (code, message) based on the root exception 
         raise http_error
     except Exception as e:
         # Catch any other exceptions and return 500 Internal error
@@ -150,11 +154,10 @@ async def intent(query: Item = None):
 @app.post("/evaluate")
 async def evaluate_model(file):
     #### TEST FILE PREPROCESSING
-    
-    
+
     
     accuracy, precision, recall = model.evaluate(file)
-    return {"accuracy": accuracy, "precision": precision, "recall": recallS}
+    return {"accuracy": accuracy, "precision": precision, "recall": recall}
 
 def main():
     arg_parser = argparse.ArgumentParser()
