@@ -1,0 +1,16 @@
+user_prompt,intents,intent_list,intent_count
+show flight and prices kansas city to chicago on next wednesday arriving in chicago by 7 pm,flight+airfare,"['flight', 'airfare']",2
+list all flights and their fares from indianapolis to memphis on a monday morning,flight+airfare,"['flight', 'airfare']",2
+list all flights and their fares from memphis to miami on a wednesday evening,flight+airfare,"['flight', 'airfare']",2
+list all flights and their fares for all flights between miami and indianapolis,flight+airfare,"['flight', 'airfare']",2
+list all sunday flights from cleveland to nashville and their fares,flight+airfare,"['flight', 'airfare']",2
+list the airfare for american airlines flight 19 from jfk to lax,airfare+flight,"['airfare', 'flight']",2
+i need a round trip flight from san diego to washington dc and the fares,flight+airfare,"['flight', 'airfare']",2
+i need a round trip from atlanta to washington dc and the fares leaving in the morning,flight+airfare,"['flight', 'airfare']",2
+i need a round trip from phoenix to washington dc and the fare leaving in the morning,flight+airfare,"['flight', 'airfare']",2
+i need flight and airline information for a flight from denver to salt lake city on monday departing after 5 pm,flight+airline,"['flight', 'airline']",2
+i need flight and fare information for thursday departing prior to 9 am from oakland going to salt lake city,flight+airfare,"['flight', 'airfare']",2
+i need flight and fare information departing from oakland to salt lake city on thursday before 8 am,flight+airfare,"['flight', 'airfare']",2
+i need flight numbers and airlines for flights departing from oakland to salt lake city on thursday departing before 8 am,flight_no+airline,"['flight_no', 'airline']",2
+show me the nonstop flights and fares from toronto to st. petersburg,flight+airfare,"['flight', 'airfare']",2
+list flights and fares from tacoma to orlando round trip leaving saturday returning next saturday,flight+airfare,"['flight', 'airfare']",2

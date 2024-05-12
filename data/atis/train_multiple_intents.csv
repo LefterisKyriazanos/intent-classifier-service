@@ -1,0 +1,23 @@
+user_prompt,intents,intent_list,intent_count
+give me the flights and fares on december twenty seventh from indianapolis to orlando,flight+airfare,"['flight', 'airfare']",2
+all flights and fares from atlanta to dallas round trip after 12 pm less than 1100 dollars,flight+airfare,"['flight', 'airfare']",2
+first flights and fares from pittsburgh to atlanta on a thursday,flight+airfare,"['flight', 'airfare']",2
+all flights and fares from pittsburgh to dallas round trip after 12 pm less than 1100 dollars,flight+airfare,"['flight', 'airfare']",2
+show all flights and fares from pittsburgh to san francisco,flight+airfare,"['flight', 'airfare']",2
+airline and flight number from columbus to minneapolis,airline+flight_no,"['airline', 'flight_no']",2
+show me all flights and fares from dallas to san francisco,flight+airfare,"['flight', 'airfare']",2
+what ground transportation is available from the pittsburgh airport to downtown and how much does it cost,ground_service+ground_fare,"['ground_service', 'ground_fare']",2
+show me the costs and times for flights from san francisco to atlanta,airfare+flight_time,"['airfare', 'flight_time']",2
+again i will repeat i want to make a one way flight from boston to atlanta will you tell me how much the fares are i would like the cheapest fare,flight+airfare,"['flight', 'airfare']",2
+show all flights and fares from denver to san francisco,flight+airfare,"['flight', 'airfare']",2
+may i please see airlines and flight numbers from new york to toronto on the same date june seventeenth also arriving in toronto before noon thank you,airline+flight_no,"['airline', 'flight_no']",2
+all flights and fares from denver to pittsburgh on us air number 1039 on a thursday,flight+airfare,"['flight', 'airfare']",2
+flights and fares from denver to oakland,flight+airfare,"['flight', 'airfare']",2
+i want to fly from detroit to st. petersburg on northwest airlines and leave around 9 am tell me what aircraft are used by this flight and tell me the flight number,aircraft+flight+flight_no,"['aircraft', 'flight', 'flight_no']",3
+what are the flights and fares from atlanta to philadelphia,flight+airfare,"['flight', 'airfare']",2
+show me all flights and fares from denver to san francisco,flight+airfare,"['flight', 'airfare']",2
+all flights and fares from dallas,flight+airfare,"['flight', 'airfare']",2
+what are the flights and fares from boston to philadelphia,flight+airfare,"['flight', 'airfare']",2
+please list me the flights and their cost of all airlines flying from denver to baltimore,flight+airfare,"['flight', 'airfare']",2
+please give me a list of all the flights between dallas and baltimore and their cost,flight+airfare,"['flight', 'airfare']",2
+give me the flights and fares on december twenty seventh from orlando to indianapolis airfare,flight+airfare,"['flight', 'airfare']",2
