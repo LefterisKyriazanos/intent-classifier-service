@@ -182,7 +182,7 @@ class GPTIntentClassifier(IntentClassifier):
                 labels.append(label)
             
             # preprocess training Data
-            prompt = GPTIntentClassifier.clear_text(prompt)
+            prompt = GPTIntentClassifier.preprocess_input(prompt)
             # append new example, eg. {'text': 'first flights and fares from pittsburgh to atlanta on a thursday', 'labels': [1, 2]}
             examples.append({"text": prompt, "labels": labels})
            
@@ -233,7 +233,7 @@ class GPTIntentClassifier(IntentClassifier):
         return pred_labels
 
     @staticmethod
-    def clear_text(input_text):
+    def preprocess_input(input_text):
         """
         Preprocesses the input text by tokenizing, removing stopwords, and removing special characters.
 
@@ -337,12 +337,12 @@ class GPTIntentClassifier(IntentClassifier):
         """
         return {'intents': [{'label': label} for label in input_list]}
     
-    def classify_intent(self, user_text: str) -> str:
+    def classify_intent(self, text: str) -> str:
         
         # preprocess input
-        user_text = GPTIntentClassifier.clear_text(user_text)
+        processed_text = GPTIntentClassifier.preprocess_input(text)
         # Use the GPT model to classify the intent of the prompt
-        prompt = self.construct_prompt_from_template(text_to_classify=user_text)
+        prompt = self.construct_prompt_from_template(text_to_classify=processed_text)
         # print(prompt)
         pred_labels = self.get_prediction_labels(prompt=prompt)
        
@@ -353,7 +353,6 @@ class GPTIntentClassifier(IntentClassifier):
             formatted_response = GPTIntentClassifier.format_server_response(input_list=pred_intents)
             return formatted_response
         else: # malformed response
-            ### Throw internal error 500 from server.py 
             print('malformed response: ', pred_labels)
             return 'Error: Malformed Response'
             
@@ -607,12 +606,29 @@ class GPTIntentClassifier(IntentClassifier):
         queries = df['user_prompt'].tolist()
         # Iterate over the Series and convert each element to a list, eg. [['flight', 'airfare'], ['capacity']]
         actual_intents = [intent for intent in df['actual_intents_list']]
+        
+        # initialize list to store valid responses
+        predicted_intents = []
+        
+        # count valid vs invalid
+        valid_res = 0
+        invalid_res = 0
+        for pos, query in enumerate(queries): 
+            print('item: ', pos)
+            response = self.classify_intent(query)
+            # malformed response
+            if response == 'Error: Malformed Response': 
+                # remove case from evaluation
+                actual_intents.pop(pos)
+                invalid_res += 1
+            # valid response
+            else:
+                # approve case for evaluation
+                predicted_intents.append(response)
+                valid_res += 1 
 
-        # classify_intent returns json like responses (dicts)
-        # execute each test query and append it to the list only if the the model's response is valid
-        predicted_intents = [result for query in queries if (result := self.classify_intent(query)) != 'Error: Malformed Response']
-
-    
+        print('valid_res: ', valid_res)
+        print('invalid_res: ', invalid_res)
         # Extracting intent labels from the predicted_intents list
         # eg. extract ['flight', 'airfare', 'ground_service'] for each test query 
         # predicted_intent_lists is a list of lists holding information about all query predictions
@@ -651,7 +667,7 @@ def main():
     print(model.is_ready())
     # print(model.classifier_type)
     # classifier_type = 'zero-shot'
-    model.load(classifier_type='zero-shot')
+    model.load()
     print(model.model_name)
     # print(model.labeled_intents)
     print(model.classifier_type)
@@ -683,11 +699,9 @@ def main():
     print('model_unknown_targets: ', model_unknown_targets)
     # print(unique_values)
     # test_ds_unique_targets = test_ds.drop_duplicates(subset=['actual_intents_list'], keep='first')
-    # log any test labels missing from the train dataset 
-    # and remove them 
-    # Extracting intents
-    # print(test_ds)
-    # test_ds_sample =  test_ds.sample(5)
+    
+    # # print(test_ds)
+    # test_ds_sample =  test_ds_unique_targets.sample(15)
     # print(test_ds_sample)
     model.evaluate(test_ds)
     
