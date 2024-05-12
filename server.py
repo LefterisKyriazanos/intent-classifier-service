@@ -147,6 +147,15 @@ async def intent(query: Item = None):
         # Catch any other exceptions and return 500 Internal error
         raise HTTPException(status_code=500, detail={"label": "INTERNAL_ERROR", "message": str(e)})
 
+@app.post("/evaluate")
+async def evaluate_model(file):
+    #### TEST FILE PREPROCESSING
+    
+    
+    
+    accuracy, precision, recall = model.evaluate(file)
+    return {"accuracy": accuracy, "precision": precision, "recall": recallS}
+
 def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--model', type=str, required=True, help='Path to model directory or file.')
