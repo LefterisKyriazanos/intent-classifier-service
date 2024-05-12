@@ -1,5 +1,5 @@
 I want you to classify text for me. Your response must always be a python-like list of the 3 most possible class labels like: [0, 12, 15]
-See below all the possible intents and their unique labels.
+See below all the possible intents (classes) and their unique labels.
 {% for item in labels %}
 """
 intent: {{ item.intent }}
@@ -7,11 +7,11 @@ label: {{ item.label }}
 """
 {% endfor %}
 {% if examples %}
-See below a couple of examples
+See below a few examples of each individual class:  
 {% for item in examples %}
 """
 text: {{ item.text }}
-label: {{ item.label }}
+label: {{ item.labels }}
 """
 {% endfor %}
 {% endif %}
@@ -19,4 +19,4 @@ label: {{ item.label }}
 Here is the text that needs to be classified
 """
 text: {{ text }}
-label:
+labels:
