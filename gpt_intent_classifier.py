@@ -47,11 +47,12 @@ class GPTIntentClassifier(IntentClassifier):
         To use this class, you need to have an OpenAI API key. Update the 'openai_api_key' attribute
         with your API key before using the classifier.
     """
-    def __init__(self, model_name = "gpt-3.5-turbo", classifier_type = 'few-shot', train_ds_path = "./data/atis/train.tsv"):
+    def __init__(self, model_name = "gpt-3.5-turbo", classifier_type = 'few-shot', train_ds_path = "./data/atis/train.tsv", test_ds_path= "./data/atis/test.tsv"):
         
         super().__init__()  # Call superclass constructor
         self.model_name = model_name
         self.train_ds_path = train_ds_path
+        self.test_ds_path = test_ds_path
         self.classifier_type = classifier_type
         self.labeled_intents = []
         self.training_examples = []
@@ -593,7 +594,36 @@ class GPTIntentClassifier(IntentClassifier):
 
         return recall_df
     
-    def evaluate(self, df):
+    def process_evaluation_dataset(self, test_size: int = 100):
+        
+        # read test ds
+        eval_ds = pd.read_csv(self.train_ds_path, sep='\t', header=None, names= ['user_prompt', 'actual_intents'])
+    
+        # preprocess
+        eval_ds['actual_intents_list'] = eval_ds['actual_intents'].str.split('+')
+    
+        # # Explode the list into separate rows
+        targets_test = eval_ds.explode('actual_intents_list')['actual_intents_list'].unique().tolist()
+        
+        # extract any unseen classes by the model
+        model_known_targets = [intent['intent'] for intent in self.labeled_intents]
+        model_unknown_targets  = set(targets_test) - set(model_known_targets)
+        # print(model_unknown_targets)
+        
+        # test contains unseen classes
+        if len(model_unknown_targets) > 0:
+            # filter out data corresponding to unseen labels
+            eval_ds = eval_ds[~eval_ds['actual_intents_list'].apply(lambda x: any(item in model_unknown_targets for item in x))]
+            print('model_unknown_targets: ', model_unknown_targets) # log them later
+        
+        # adjust test_size 
+        if eval_ds.shape[0] >= test_size: # else take max length
+            # choose random sample equal to mx length
+            eval_ds = eval_ds.sample(test_size)
+        
+        return eval_ds, model_unknown_targets
+        
+    def evaluate(self, test_size: int = 100):
         """
         Evaluate the performance of the intent classifier based on whether the actual intent is a subset of the predicted intents.
 
@@ -602,10 +632,11 @@ class GPTIntentClassifier(IntentClassifier):
         Returns:
         
         """
-    
-        queries = df['user_prompt'].tolist()
+        train_ds, model_unknown_targets =  self.process_evaluation_dataset(test_size)
+        
+        queries = train_ds['user_prompt'].tolist()
         # Iterate over the Series and convert each element to a list, eg. [['flight', 'airfare'], ['capacity']]
-        actual_intents = [intent for intent in df['actual_intents_list']]
+        actual_intents = [intent for intent in train_ds['actual_intents_list']]
         
         # initialize list to store valid responses
         predicted_intents = []
@@ -627,8 +658,6 @@ class GPTIntentClassifier(IntentClassifier):
                 predicted_intents.append(response)
                 valid_res += 1 
 
-        print('valid_res: ', valid_res)
-        print('invalid_res: ', invalid_res)
         # Extracting intent labels from the predicted_intents list
         # eg. extract ['flight', 'airfare', 'ground_service'] for each test query 
         # predicted_intent_lists is a list of lists holding information about all query predictions
@@ -648,12 +677,12 @@ class GPTIntentClassifier(IntentClassifier):
         confusion_matrix = self.calculate_confusion_matrix(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
         
         # save as csv's
-        GPTIntentClassifier.save_as_csv(confusion_matrix, file_path=f'./model_evaluation/{self.classifier_type}_confusion_matrix.csv')
-        GPTIntentClassifier.save_as_csv(accuracy, file_path=f'./model_evaluation/{self.classifier_type}_accuracy.csv')
-        GPTIntentClassifier.save_as_csv(precision, file_path=f'./model_evaluation/{self.classifier_type}_precision.csv')
-        GPTIntentClassifier.save_as_csv(recall, file_path=f'./model_evaluation/{self.classifier_type}_recall.csv')
+        # GPTIntentClassifier.save_as_csv(confusion_matrix, file_path=f'./model_evaluation/{self.classifier_type}_confusion_matrix.csv')
+        # GPTIntentClassifier.save_as_csv(accuracy, file_path=f'./model_evaluation/{self.classifier_type}_accuracy.csv')
+        # GPTIntentClassifier.save_as_csv(precision, file_path=f'./model_evaluation/{self.classifier_type}_precision.csv')
+        # GPTIntentClassifier.save_as_csv(recall, file_path=f'./model_evaluation/{self.classifier_type}_recall.csv')
         
-        return accuracy, precision, recall, confusion_matrix
+        return valid_res, invalid_res, accuracy, precision, recall, confusion_matrix
     
 def main():
     # classifier_name = "GPT"  # or "BERT"
@@ -679,31 +708,10 @@ def main():
     
     
     ### EVALUATION 
-    ## read eval ds 
-    test_ds = pd.read_csv("./data/atis/test.tsv", sep='\t', header=None, names= ['user_prompt', 'actual_intents'])
-    
-    
-    test_ds['actual_intents_list'] = test_ds['actual_intents'].str.split('+')
-  
-    # # Explode the list into separate rows
-    targets_test = test_ds.explode('actual_intents_list')['actual_intents_list'].unique().tolist()
-    model_known_targets = [intent['intent'] for intent in model.labeled_intents]
-    model_unknown_targets  = set(targets_test) - set(model_known_targets)
-    # print(model_unknown_targets)
-    
-    if len(model_unknown_targets) > 0:
-        # Filtering rows based on values in the column
-        test_ds = test_ds[~test_ds['actual_intents_list'].apply(lambda x: any(item in model_unknown_targets for item in x))]
-
-        
-    print('model_unknown_targets: ', model_unknown_targets)
-    # print(unique_values)
-    # test_ds_unique_targets = test_ds.drop_duplicates(subset=['actual_intents_list'], keep='first')
-    
     # # print(test_ds)
     # test_ds_sample =  test_ds_unique_targets.sample(15)
     # print(test_ds_sample)
-    model.evaluate(test_ds)
+    model.evaluate(test_size=50)
     
     
     
