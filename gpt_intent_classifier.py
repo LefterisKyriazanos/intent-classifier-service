@@ -89,16 +89,29 @@ class GPTIntentClassifier(IntentClassifier):
             >>> unique_intents = ['flight', 'airfare', 'ground_service', 'flight+city']
             >>> labels = create_label_intents(unique_intents)
             >>> print(labels)
+            
+            for `zero-shot`:
+            
             [{'label': 0, 'intent': 'flight', 'description': 'This intent is about obtaining flight information'},
             {'label': 1, 'intent': 'airfare', 'description': 'This intent is about obtaining airfare information'},
             {'label': 2, 'intent': 'ground_service', 'description': 'This intent is about obtaining ground_service information'}],
             {'label': 3, 'intent': 'city', 'description': 'This intent is about obtaining city information'}]
+            
+            for `few-shot`:
+            
+            [{'label': 0, 'intent': 'flight'},
+            {'label': 1, 'intent': 'airfare'},
+            {'label': 2, 'intent': 'ground_service'}],
+            {'label': 3, 'intent': 'city'}]
+            
         """
+        
         labels = []
         label_counter = 0
         
         if self.classifier_type == 'few-shot':
             for intent in intents:
+                # append label
                 labels.append({"label": label_counter, "intent": intent})
                 label_counter += 1
         else: # prepare labels for zero-shot by adding "description"
@@ -109,7 +122,7 @@ class GPTIntentClassifier(IntentClassifier):
         return labels
     
     # @staticmethod
-    def pick_training_examples(self, max_per_label: int = 10) -> List[Dict[str, any]]:
+    def pick_training_examples(self, training_examples: List[Dict[str, any]], max_per_label: int = 2):
         """
         Get a subset of examples for each label, limiting to a maximum number of examples per label.
         These Examples are later used as training data for the 'few-shot' classifier. 
@@ -125,29 +138,31 @@ class GPTIntentClassifier(IntentClassifier):
             >>> training_examples = get_few_shot_examples(examples, max_per_label=2)
             >>> print(len(training_examples))
             20  # Assuming there are 10 unique labels with 2 examples each
+            
+        Updates: self.training_examples attribute
         """
         label_count = {}
         
         # Initialize label_count with all possible single labels as keys and values (count) set to 0
         for label in self.labeled_intents:
             label_count[label['label']] = 0
-
+            
         # Shuffle examples to ensure randomness
-        random.shuffle(self.training_examples)
+        random.shuffle(training_examples)
 
-        for example in self.training_examples:
+        for example in training_examples:
             # training examples of multiple intents (0.5% of total) are excluded 
             # to avoid uneven correlations between classes
-            if len(example["labels"]) > 1:
+            if len(example["labels"]) > 1: # example has single target label
                 continue
-            else: # example has single target label
+            else: 
                  # Check if the maximum limit for the label has been reached
-                if label_count[label['label']] < max_per_label:
+                if label_count[example["labels"][0]] < max_per_label:
                     self.training_examples.append(example)
-                    label_count[label['label']] += 1
-                
-            # Break the loop if all labels reached the maximum limit
-            if all(count >= max_per_label for count in label_count.values()):
+                    label_count[example["labels"][0]] += 1
+            
+            # Break the loop if all labels (classes) reached the maximum limit
+            if all(label_count[label['label']] >= max_per_label for label in self.labeled_intents):
                 break
 
     
@@ -181,7 +196,7 @@ class GPTIntentClassifier(IntentClassifier):
                 labels.append(label)
             
             # preprocess training Data
-            prompt = GPTIntentClassifier.preprocess_input(prompt)
+            prompt = GPTIntentClassifier.preprocess_text(prompt)
             # append new example, eg. {'text': 'first flights and fares from pittsburgh to atlanta on a thursday', 'labels': [1, 2]}
             examples.append({"text": prompt, "labels": labels})
            
@@ -270,7 +285,7 @@ class GPTIntentClassifier(IntentClassifier):
         return pred_labels
 
     @staticmethod
-    def preprocess_input(input_text):
+    def preprocess_text(input_text):
         """
         Preprocesses the input text by tokenizing, removing stopwords, and removing special characters.
 
@@ -295,37 +310,69 @@ class GPTIntentClassifier(IntentClassifier):
     
     
     def load(self, model_name: str = 'gpt-3.5-turbo', classifier_type: str = 'few-shot'):
-        # Update Attributes
+        
+        # update attributes
         self.model_name  = model_name
         self.classifier_type = classifier_type
         
-        # # Read the TSV file into a pandas DataFrame
-        # train_ds = pd.read_csv(self.train_ds_path, sep='\t', header=None, names= ['user_prompt', 'intents'])
-
         # Get unique intents list from training DS
         # To add/update intents, modify the dataset at self.train_ds_path with a few examples of the new intents
         # Future Improvement: uncouple the addition/update of intents from the training ds
         self.train_ds['intents_list'] = self.train_ds['intents'].str.split('+')
 
-        # Explode the list into separate rows
+        # Explode the list into separate rows & extract all unique classes
         unique_intents = self.train_ds.explode('intents_list')['intents_list'].unique().tolist()
+        
         # Create a list of dicts containing basic information about each class (intent)
-        # Returns (for few-shot): [{'label': 0, 'intent': 'flight'}, {'label': 1, 'intent': 'airfare'}, {'label': 2, 'intent': 'ground_service'}]
-        # OR (for zero-shot): [{'label': 0, 'intent': 'flight', "description": "This intent is about obtaining flight information"}, {'label': 1, 'intent': 'airfare', "description": "This intent is about obtaining airfare information"}]
+        # see doc for more information
         self.labeled_intents = self.create_label_intents(intents= unique_intents)
       
-        
         if self.classifier_type == 'few-shot':
-            # Transform training data from dataframe to python list of dicts, with user_prompts as keys and intent_ids as values
-            # Return example [{'text': 'ground transportation for las vegas', 'label': 0}, {'text': 'kansas city to las vegas economy', 'label': 1}]
-            examples = self.create_examples()
             
+            # Transform training data from dataframe to python list of dicts, with user_prompts as keys and intent_ids as values
+            examples = self.create_examples()
             # Pick a representative subset of examples for each class equal to 'max_per_label'
-            # We later pass these training_examples as reference to the 'few-shot' classifiers
-            self.training_examples = self.pick_training_examples(max_per_label= 3)
+            self.pick_training_examples(training_examples=examples, max_per_label= 2)
         
+        # evaluate before finishing loading
+        valid_res, invalid_res, accuracy, precision, recall, confusion_matrix = self.evaluate(test_size=20)
+        
+        #
+        # action based on evaluation metrics
+        # ...
+        
+        # example action
+        # load successfully only at least 99.5% of responses were successful
+        if valid_res >= ((valid_res+invalid_res) * 0.995):
+            # use general accuracy 
+            if accuracy['accuracy'].values[0] >= 0.90:
+                pass
+            
+        else:
+            # throw exception
+            pass
     
     def convert_pred_labels_to_intents(self, pred_labels: str) -> list():
+        """
+        Convert predicted labels to intents using a mapping from integer labels to intent values.
+
+        Parameters:
+            pred_labels (str): A string representing predicted labels as integers, separated by commas and enclosed in square brackets.
+
+        Returns:
+            list: A list of intents corresponding to the predicted labels.
+
+        Explanation:
+            This function takes a string `pred_labels` representing predicted labels as integers, separated by commas,
+            and enclosed in square brackets. It first converts the string into a list of integers using list comprehension.
+            Then, it maps each integer label to the corresponding intent value using a mapping defined in `self.labeled_intents`.
+            Finally, it returns a list of intents corresponding to the predicted labels.
+
+            Example:
+                If `pred_labels` is '[0,1,2]', and `self.labeled_intents` is [{'label': 0, 'intent': 'Greeting'}, 
+                {'label': 1, 'intent': 'Goodbye'}, {'label': 2, 'intent': 'Question'}], the function will return 
+                ['Greeting', 'Goodbye', 'Question'].
+        """
         # Convert string to list of integers
         pred_labels = [int(x) for x in pred_labels.strip('[]').split(',')]
         # Map each integer to the corresponding label value
@@ -377,20 +424,24 @@ class GPTIntentClassifier(IntentClassifier):
     def classify_intent(self, text: str) -> str:
         
         # preprocess input
-        processed_text = GPTIntentClassifier.preprocess_input(text)
+        processed_text = GPTIntentClassifier.preprocess_text(text)
         # Use the GPT model to classify the intent of the prompt
         prompt = self.construct_prompt_from_template(text_to_classify=processed_text)
-        # print(prompt)
+
+        # expecting python-like list response of 3 integers
         pred_labels = self.get_prediction_labels(prompt=prompt)
        
-        # validate response 
+        # validate response's format
         if GPTIntentClassifier.validate_response(pred_labels): # response is in expected format
+            
+            # process response and convert to actual labels 
             pred_intents = self.convert_pred_labels_to_intents(pred_labels = pred_labels)
             # format response 
             formatted_response = GPTIntentClassifier.format_server_response(input_list=pred_intents)
             return formatted_response
         else: # malformed response
             print('malformed response: ', pred_labels)
+            # Will raise INTERNAL ERROR 500 on server
             return 'Error: Malformed Response'
             
             
@@ -626,7 +677,7 @@ class GPTIntentClassifier(IntentClassifier):
 
         return recall_df
     
-    def sample_evaluation_data(self, test_size: int):
+    def sample_evaluation_data(self, test_size: int = 20):
        
         """
         Sample data from the evaluation dataset ensuring each class is represented equally.
@@ -643,7 +694,7 @@ class GPTIntentClassifier(IntentClassifier):
             unique class. For each class, if the number of samples is less than or equal to 'samples_per_class', all samples
             from that class are included. Otherwise, it randomly selects 'samples_per_class' samples from that class.
 
-            If the total number of samples in 'sample_ds' is less than 'test_size', the function randomly selects the remaining
+            If the resulting 'sample_ds' dataset is less than 'test_size', the function randomly selects the remaining
             samples from other classes.
 
             If the 'test_size' is less than the number of unique classes, the function chooses one example from each class
@@ -664,11 +715,11 @@ class GPTIntentClassifier(IntentClassifier):
                 # Extract samples belonging to the current class
                 class_samples = self.test_ds[self.test_ds['actual_intents'] == unique_test_class_label]
 
-                # If the number of samples for this class is less than or equal to samples_per_class, include all samples
+                # If the number of samples for this class is less than or equal to samples_per_class, include all class samples
                 if len(class_samples) <= samples_per_class:
                     sample_ds = pd.concat([sample_ds, class_samples])
                 else:
-                    # Randomly select samples_per_class samples from this class
+                    # Randomly select samples  from this class
                     sampled_indices = np.random.choice(class_samples.index, samples_per_class, replace=False)
                     sampled_class_samples = class_samples.loc[sampled_indices]
                     sample_ds = pd.concat([sample_ds, sampled_class_samples])
@@ -683,7 +734,6 @@ class GPTIntentClassifier(IntentClassifier):
                 sample_ds = pd.concat([sample_ds, additional_samples])
             
         else: # test len is less than class count
-            
             # choose one example from each class 
             sample_ds = self.test_ds.drop_duplicates(subset=['actual_intents'], keep='first')
             # choose a subset of classes to test, equal to test_size
@@ -745,9 +795,51 @@ class GPTIntentClassifier(IntentClassifier):
         
         # adjust test_size 
         if self.test_ds.shape[0] >= test_size: # else take max length
-            # Balance test dataset
+            # Balance test dataset ('self.test_ds' attribute)
             self.sample_evaluation_data(test_size=test_size)
         
+        # (list) format:  [['find a flight from memphis to tacoma dinner'], ['show flights from burbank to milwaukee for today']]
+        queries = self.test_ds['user_prompt'].tolist()
+        # Iterate over the Series and convert each element to a list with format:[['flight', 'airfare'], ['capacity']]
+        actual_intents = [intent for intent in self.test_ds['actual_intents_list']]
+        
+        return queries, actual_intents
+        
+    def predict_test_set(self, queries):
+        """
+        Get predictions for the given set of queries and count valid vs invalid responses.
+
+        Parameters:
+            queries (list): A list of queries to be evaluated.
+
+        Returns:
+            tuple: A tuple containing:
+                - predicted_intents (list): A list of valid predicted intents.
+                - valid (int): The count of valid responses.
+                - invalid (int): The count of invalid/malformed/unexpected responses.
+        """
+        
+        predicted_intents = []
+        valid_res = 0
+        invalid_res = 0
+
+        # Test cases one by one
+        for pos, query in enumerate(queries): 
+            response = self.classify_intent(query)
+            # Malformed response
+            if response == 'Error: Malformed Response': 
+                # Remove case from evaluation
+                # actual_intents.pop(pos)  # Assuming 'actual_intents' is not needed here
+                # Count invalid
+                invalid_res += 1
+            # Valid response
+            else:
+                # Approve case for evaluation
+                predicted_intents.append(response)
+                valid_res += 1 
+
+        return predicted_intents, valid_res, invalid_res
+
     def evaluate(self, test_size: int = 100):
         """
         Evaluate the performance of the intent classifier based on whether the actual intent is a subset of the predicted intents.
@@ -764,35 +856,17 @@ class GPTIntentClassifier(IntentClassifier):
                 - recall (pandas DataFrame): The recall of the classifier.
                 - confusion_matrix (pandas DataFrame): The confusion matrix of the classifier.
         """
-        self.process_evaluation_dataset(test_size)
-        queries = self.test_ds['user_prompt'].tolist()
-        # Iterate over the Series and convert each element to a list, eg. [['flight', 'airfare'], ['capacity']]
-        actual_intents = [intent for intent in self.test_ds  ['actual_intents_list']]
-        
+        queries, actual_intents = self.process_evaluation_dataset(test_size)
+    
         # initialize list to store valid responses
         predicted_intents = []
         
-        # count valid vs invalid
-        valid_res = 0
-        invalid_res = 0
-        for pos, query in enumerate(queries): 
-            print('item: ', pos)
-            response = self.classify_intent(query)
-            # malformed response
-            if response == 'Error: Malformed Response': 
-                # remove case from evaluation
-                actual_intents.pop(pos)
-                invalid_res += 1
-            # valid response
-            else:
-                # approve case for evaluation
-                predicted_intents.append(response)
-                valid_res += 1 
-
-        # Extracting intent labels from the predicted_intents list
+        # get predictions for the dataset
+        predicted_intents, valid_res, invalid_res = self.predict_test_set(queries)
+        # valid & invalid response count
+        print(valid_res, invalid_res)
+        # Replace labels with actual intents
         # eg. extract ['flight', 'airfare', 'ground_service'] for each test query 
-        # predicted_intent_lists is a list of lists holding information about all query predictions
-        # eg. [['meal', 'flight', 'distance'], ['flight', 'city', 'flight_time']]
         predicted_intent_lists = GPTIntentClassifier.extract_predicted_intents(predicted_intents=predicted_intents)
 
         # calculate accuracy
@@ -808,21 +882,21 @@ class GPTIntentClassifier(IntentClassifier):
         confusion_matrix = self.calculate_confusion_matrix(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
         
         # save as csv's
-        GPTIntentClassifier.save_as_csv(confusion_matrix, file_path=f'./model_evaluation/{self.classifier_type}_confusion_matrix.csv')
-        GPTIntentClassifier.save_as_csv(accuracy, file_path=f'./model_evaluation/{self.classifier_type}_accuracy.csv')
-        GPTIntentClassifier.save_as_csv(precision, file_path=f'./model_evaluation/{self.classifier_type}_precision.csv')
-        GPTIntentClassifier.save_as_csv(recall, file_path=f'./model_evaluation/{self.classifier_type}_recall.csv')
+        # GPTIntentClassifier.save_as_csv(confusion_matrix, file_path=f'./model_evaluation/{self.classifier_type}_confusion_matrix.csv')
+        # GPTIntentClassifier.save_as_csv(accuracy, file_path=f'./model_evaluation/{self.classifier_type}_accuracy.csv')
+        # GPTIntentClassifier.save_as_csv(precision, file_path=f'./model_evaluation/{self.classifier_type}_precision.csv')
+        # GPTIntentClassifier.save_as_csv(recall, file_path=f'./model_evaluation/{self.classifier_type}_recall.csv')
         
         return valid_res, invalid_res, accuracy, precision, recall, confusion_matrix
     
 def main():
     print('in main')
     # Instantiate a concrete subclass of IntentClassifier
-    model = GPTIntentClassifier(classifier_type='zero-shot')
+    model = GPTIntentClassifier(classifier_type='few-shot')
     print(model.is_ready())
-    # print(model.classifier_type)
     # classifier_type = 'zero-shot'
-    model.load()
+    model.load(classifier_type='zero-shot')
+    # print(model.training_examples)
     print(model.model_name)
     # print(model.labeled_intents)
     print(model.classifier_type)
@@ -832,7 +906,7 @@ def main():
     # print(model.labeled_intents)
     # print(formatted_response)
     # raise
-    model.evaluate(test_size=30)
+   
     
     
     
