@@ -610,13 +610,16 @@ class GPTIntentClassifier(IntentClassifier):
             
             We count all intents vs all predictions as `confusions` like this: 
             
-            - 'flight' -> 'flight'       +1
-            - 'flight' -> 'flight_no'    +1
-            - 'flight' -> 'airport'      +1
+            - 'flight' -> 'flight'       +1 ('flight' is a correct prediction)
+            - 'flight' -> 'flight_no'    +1 ('flight_no' is a false prediction)
+            - 'flight' -> 'airfare'     +1  ('airfare' is a correct prediction)
+
+            - 'airfare' -> 'flight'         +1 ('flight' is a correct prediction)
+            - 'airfare' -> 'flight_no'      +1 ('flight_no' is a false prediction)
+            - 'airfare' -> 'airfare'       +1  ('airfare' is a correct prediction)
             
-            - 'airfare' -> 'flight'         +1
-            - 'airfare' -> 'flight_no'      +1
-            - 'airfare' -> 'airport'        +1
+        This approach enables us to discern not only how frequently certain classes appear together    
+        but also to identify any underlying associations the model implicitly recognizes.  
 
         Parameters:
             actual_intents (list of lists): A list of lists containing the actual intents for each test case.
