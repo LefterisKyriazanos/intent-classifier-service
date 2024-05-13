@@ -52,5 +52,11 @@ class BERTIntentClassifier(IntentClassifier):
         # Implement BERTIntentClassifier-specific intent classification
         pass
 
+    def load(self, model_path: str) -> None:
+        """
+        Load the intent classifier model from the specified path.
 
-    ## DEF LOAD
+        Parameters:
+            model_path (str): Path to the model file or directory.
+        """
+        pass
