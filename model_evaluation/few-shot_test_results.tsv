@@ -1,4 +1,4 @@
-['flight']  ['flight', 'city', 'restriction']
+['flight'] ['flight', 'city', 'restriction']
 ['airfare'] ['flight', 'airport', 'flight_no']
 ['flight']  ['flight', 'city', 'cheapest']
 ['flight']  ['flight', 'distance', 'quantity']
