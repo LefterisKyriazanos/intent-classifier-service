@@ -42,31 +42,31 @@ def ready():
     else:
         raise HTTPException(status_code=500, detail= {"label": "INTERNAL_ERROR", "message": "Not Ready"})
     
-# @app.exception_handler(RequestValidationError)
-# async def validation_exception_handler(request, exc):
-#     """
-#     Exception handler for RequestValidationError.
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    """
+    Exception handler for RequestValidationError.
     
-#     This method catches RequestValidationError raised during request validation 
-#     and responds with a 500 Internal Server Error status code instead of the predefined fastapi error for value validation.
+    This method catches RequestValidationError raised during request validation 
+    and responds with a 500 Internal Server Error status code instead of the predefined fastapi error for value validation.
     
-#     See Item class for more information. 
+    See Item class for more information. 
 
-#     Parameters:
-#         request (Request): The request object.
-#         exc (RequestValidationError): The RequestValidationError instance.
+    Parameters:
+        request (Request): The request object.
+        exc (RequestValidationError): The RequestValidationError instance.
 
-#     Returns:
-#         HTTPException: An HTTPException with a 500 status code and error detail.
+    Returns:
+        HTTPException: An HTTPException with a 500 status code and error detail.
     
-#     Example Requests Handled:
-#         - Missing required fields in the request body.
-#         - Incorrect data types for fields.
-#         - Invalid field values failing validation criteria.
-#         - Incorrect data format in the request.
+    Example Requests Handled:
+        - Missing required fields in the request body.
+        - Incorrect data types for fields.
+        - Invalid field values failing validation criteria.
+        - Incorrect data format in the request.
 
-#     """
-#     raise HTTPException(status_code=500, detail={"label": "INTERNAL_ERROR", "message": str(exc)})
+    """
+    raise HTTPException(status_code=500, detail={"label": "INTERNAL_ERROR", "message": str(exc)})
 
 @app.post('/intent')
 async def intent(query: Item = None):
