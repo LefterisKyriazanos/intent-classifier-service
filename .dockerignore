@@ -1,0 +1,18 @@
+# Exclude version control system files
+.git
+
+# Exclude temporary and cache files
+*.pyc
+__pycache__
+.python-version
+
+# Exclude virtual environment folders
+venv/
+.venv/
+myenv/
+.myenv/
+
+# README & Notebooks
+
+README
+notebooks/
