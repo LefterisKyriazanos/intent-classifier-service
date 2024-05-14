@@ -2,6 +2,89 @@
 
 ## Introduction 
 
+This repository contains implementation of a GPT intent classification model using the OPENAI API.  
+
+The model is trained to classify user queries into various intents related to aviation and aviation services like: `flight`, `airfare`, `ground_services` and more.  
+
+The repository also includes a FastAPI script (`server.py`) that serves as an API endpoint to classify user queries using the trained model.  
+You can send a POST request with a user query, and the API will respond with the 3 most possible intents.  
+
+**Example response: ** 
+
+```json
+{
+ "intents": [{
+   "label": "flight"
+ }, {
+   "label": "aircraft"
+ }, {
+   "label": "capacity"}]
+}
+```  
+
+The implementation currently supports 2 classifier types:  
+
+- `zero-shot`:  only the labels, names and a short description of the class is provided to the model as reference.  
+
+**Example:** 
+
+```json
+"""  
+intent: flight_time  
+description: This intent is about obtaining flight_time information  
+label: [1]
+"""  
+
+"""  
+intent: airfare  
+description: This intent is about obtaining airfare information  
+label: [2] 
+"""  
+```  
+
+- `few-shot`:  the labels, names and a at least one training example per class are provided to the model as reference.  
+
+**Example:** (labels)  
+
+```json
+"""  
+intent: flight    
+label: 0    
+"""  
+
+"""  
+intent: meal 
+label: 1  
+"""  
+```  
+
+**Example:** (training examples)  
+
+```json
+"""  
+text: cost fly Atlanta San Francisco  
+label: [0]  
+"""  
+ 
+"""  
+text: types meals available    
+label: [1]  
+"""   
+```  
+
+The service is making requests to the `gpt-3-5-turbo` model by default.  
+You can try other openai models according to your preference with `--model_name` startup argument, but keep in mind that only the `gpt-3-5-turbo` model has been tested.   
+
+The architecture of the service allows for easy implementation & integration of other classifiers, that do not directly depend on `OPENAI API`.  
+Only the GPT classifier is implemented at the momment, but you can see backbone of a valid intent classifier at [intent_classifier.py](./intent_classifier.py) and at [bert_intent_classifier..py](./bert_intent_classifier.py) that contains the skeleton of a `BERT` based classifier.   
+
+You can use the default [train](./data/atis/train.tsv) & [test](./data/atis/test.tsv) datasets to get started.  
+To add/remove intents or run the server using a custom dataset see [run_service_with_custom_dataset](./notebooks/run_service_on_custom_dataset.ipynb).   
+
+## Architecture  
+
+
+
 
 
 ## Contents    
@@ -16,26 +99,24 @@
 - [entrypoint.sh](./entrypoint.sh): Bash script that initiates the server with the given arguments  
 - [notebooks folder](./notebooks/): Set of jupyter notebooks containing documentation, runtime logs, test cases etc.  
 - [model_evaluation folder](./model_evaluation/): Evaluation metrics for each classifier type (`zero-shot` & `few-shot`)  
-
-
-## Architecture  
+- [server_launch_examples](./server_launch_examples.ipynb): Examples of server launching & response validation testing  edge cases  
 
 
 ## Server Startup Arguments  
 
 The server accepts the following command-line (or environmental) arguments:
 
-- `--classifier <classifier_class>`: Specifies the classifier class to use. Options include 'GPT' or 'Bert'. **Default**: 'GPT'.  
+- `--classifier <classifier_class>`: Specifies the classifier class to use. Options include 'GPT' or 'Bert'. **Default**: `GPT`.  
 Environment variable: classifier  
-- `--model <model_name>`: Specifies the name of the model to use. **Default**: 'gpt-3.5-turbo'.  
+- `--model <model_name>`: Specifies the name of the model to use. **Default**: `gpt-3.5-turbo`.  
 Environment variable: model  
-- `--classifier_type <classifier_type>`: Specifies the classifier type, either 'few-shot' or 'zero-shot'. **Default**: 'zero-shot'.  
+- `--classifier_type <classifier_type>`: Specifies the classifier type, either 'few-shot' or 'zero-shot'. **Default**: `zero-shot`.  
 Environment variable: classifier_type  
-- `--train_ds_path <train_dataset_path>`: Specifies the relative path to the training dataset in tsv format. **Default**: './data/atis/train.tsv'.  
+- `--train_ds_path <train_dataset_path>`: Specifies the relative path to the training dataset in tsv format. **Default**: `./data/atis/train.tsv`.  
 Environment variable: train_ds_path  
-- `--test_ds_path <test_dataset_path>`: Specifies the relative path to the testing dataset in tsv format. **Default**: './data/atis/test.tsv'.  
+- `--test_ds_path <test_dataset_path>`: Specifies the relative path to the testing dataset in tsv format. **Default**: `./data/atis/test.tsv`.  
 Environment variable: test_ds_path  
--  `--port <port_number>`: Specifies the port number on which the server should listen for incoming connections. **Default**: 8080.  
+-  `--port <port_number>`: Specifies the port number on which the server should listen for incoming connections. **Default**: `8080`s.  
 Environment variable: PORT  
 
 
@@ -80,6 +161,7 @@ Navigate the codebase and the [notebooks](./notebooks/) folder to see:
 
 - [data_exploration](./notebooks/data_exploration.ipynb): Insights and visuals based on the given `train` and `test` datasets  
 - [data_management](./notebooks/data_management.ipynb): Definitions of Classes (intents), training and evaluation data sampling logic,  addition of new intents, input preprocessing and response validation  
+- [run_service_with_custom_dataset](./notebooks/run_service_on_custom_dataset.ipynb): Run service using custom dataset  
 - [evaluation_metrics](./notebooks/evaluation_metrics.ipynb): Definition of each evaluation metric, evaluation outputs & costs for the 2 classifier types (`zero-shot`, `few-shot`).  
 See [model_evaluation_folder](./model_evaluation/) for detailed results and confusion matrices   
 - [endpoint_testing](./notebooks/endpoint_testing.ipynb): Test server responses of `/intent` endpoint on normal and edge cases. Detailed documentation of endpoint expected responses in found  
