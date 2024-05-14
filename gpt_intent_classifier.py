@@ -9,7 +9,8 @@ import jinja2
 import numpy as np
 import re
 import nltk
-nltk.download('stopwords')
+nltk.download('stopwords')  
+nltk.download('punkt')  
 from nltk.corpus import stopwords
 import string
 from fastapi import HTTPException
