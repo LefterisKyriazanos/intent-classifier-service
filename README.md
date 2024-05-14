@@ -4,9 +4,9 @@
 
 This repository contains implementation of a GPT intent classification model using the OPENAI API.  
 
-The model is trained to classify user queries into various intents related to aviation and aviation services like: `flight`, `airfare`, `ground_services` and more.  
+The model is trained to classify user queries into various intents related to aviation and aviation services like: `flight`, `airfare`, `ground_services` and more.   
 
-The repository also includes a FastAPI script (`server.py`) that serves as an API endpoint to classify user queries using the trained model.  
+The repository also includes a FastAPI script (`server.py`) that serves as an API endpoint to classify user queries using the model.  
 You can send a POST request with a user query, and the API will respond with the 3 most possible intents.  
 
 **Example response:** 
@@ -110,10 +110,6 @@ Part of the GPTIntentClassifier `load()` function is the performance evaluation 
 
 
 ![Alt Text](./diagrams/gpt_load.jpg)      
-
-
-
-
 
 
 ## Contents    
