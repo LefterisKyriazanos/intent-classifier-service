@@ -83,6 +83,35 @@ To add/remove intents or run the server using a custom dataset see [run_service_
 
 ## Architecture  
 
+### **IntentClassifier**  
+
+Each classifier implementation is defined by the abstract class IntentClassifier.   
+This class defines 3 basic methods for all classifiers:  
+
+- `load()`: loads the model **before** starting the server  
+- `ready()`: checks model status   
+- `classify_intent(text)`: classifies query (str)  
+
+  
+![Alt Text](./diagrams/abstract.jpg)    
+
+
+### **FastAPI**   
+
+By defining an API (server.py) we can communicate with the model through HTTP requests as shown below:   
+    
+![Alt Text](./diagrams/fastapi.jpg)    
+
+
+### **load() function**  
+
+We use the load function to prepare the model for intent classification.  
+Part of the GPTIntentClassifier `load()` function is the performance evaluation of the model **before** running the server.   
+
+
+![Alt Text](./diagrams/gpt_load.jpg)      
+
+
 
 
 
@@ -122,6 +151,7 @@ Environment variable: PORT
 
 ## Setup
 
+- navigate to project folder `intent-classifier-service`  
 - create `.env` file inside the directory and place your `OPENAI_API_KEY`  
 
 ### 1. Using Docker 
@@ -131,13 +161,9 @@ For AMD64 architecture (Intel):
 - `chmod +x [run_container.sh](./run_container.sh), to make the script executable`   
 - `./run_container.sh`  to build and run the app 
 
-For ARM architecture (M chips):  
-
-
 
 Wait a couple of minutes for the container to build and the classifier service will start automatically with the default settings.   
 
-- ADD SCREENSHOT  
 
 ### 2. Using python 3.11 and a virtual enviroment   
 
