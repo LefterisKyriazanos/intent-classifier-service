@@ -160,7 +160,6 @@ For AMD64 architecture (Intel):
 
 Wait a couple of minutes for the container to build and the classifier service will start automatically with the default settings.   
 
-
 ### 2. Using python (3.11) and a virtual enviroment   
 
 - create a virtual environment (e.g. `python3.11 -m venv venv`)  
@@ -175,7 +174,8 @@ Wait a couple of minutes for the container to build and the classifier service w
 Wait a few seconds for the model to load and once the server is up you can use [make_requests notebook](./notebooks/make_requests.ipynb) to make your requests and test the API. 
 You can also test the examples and edge cases in [endpoint_testing notebook](./notebooks/endpoint_testing.ipynb) yourself!  
 
-
+Note:  During loading the service will make 30 requests to openAI for evaluation purposes.  
+  
 You'll soon see the model evaluation metrics in your console. For detailed explanations on these metrics, refer to [evaluation_metrics_notebook](./notebooks/evaluation_metrics.ipynb). Explore [gpt_model_loader_notebook](./notebooks/gpt_model_loader.ipynb) for  examples of few-shot and zero-shot loading outputs.  
 
 

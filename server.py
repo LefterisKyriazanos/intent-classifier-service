@@ -168,7 +168,7 @@ def main():
     
     # Prepare and evaluate the model
     # Ensures that the server is only started when the model is successfully loaded
-    if model.load(test_size=25):
+    if model.load(test_size=30):
         print('\nModel loaded successfully!\n')
         print('\nStarting Server..\n')
         # If the model is successfully loaded, run the server

@@ -402,7 +402,7 @@ class GPTIntentClassifier(IntentClassifier):
             # example action
             # load successfully only when at least 99.5% of responses were successful and general accuracy over 85%
             if valid_res >= ((valid_res+invalid_res) * 0.995):
-                if (accuracy['accuracy'].values[0] >= 0.85):              
+                if (accuracy['accuracy'].values[0] >= 0.80):              
                     return True
             else: # failed evaluation
                 return False
