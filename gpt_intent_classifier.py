@@ -175,8 +175,7 @@ class GPTIntentClassifier(IntentClassifier):
             if all(label_count[label['label']] >= max_per_label for label in self.labeled_intents):
                 break
 
-    
-    # @staticmethod
+
     def create_examples(self) -> List[Dict[str, any]]:
         """
         Create a list of examples with text and corresponding labels based on user prompts and intents.
