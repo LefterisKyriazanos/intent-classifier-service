@@ -42,12 +42,12 @@ class IntentClassifier(ABC):
         pass
     
     @abstractmethod
-    def load(self, model_path: str) -> None:
+    def load(self, test_size: int) -> None:
         """
         Load the intent classifier model from the specified path.
 
         Parameters:
-            model_path (str): Path to the model file or directory.
+            test_size (int): Evaluate the dataset on test_size cases
         """
         pass
     

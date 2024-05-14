@@ -43,7 +43,7 @@ def ready():
         raise HTTPException(status_code=500, detail= {"label": "INTERNAL_ERROR", "message": "Not Ready"})
     
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
+def validation_exception_handler(request, exc):
     """
     Exception handler for RequestValidationError.
     
@@ -115,11 +115,11 @@ async def intent(query: Item = None):
             # Raise a 400 Bad Request error if the 'text' field is missing value
             raise HTTPException(status_code=400, detail={"label": "TEXT_MISSING", "message": "\"text\" missing from request body."})
         else:
-            # intent classification logic 
+            # intent classification logic / returns Dict
             response = model.classify_intent(query.text)
             # response is valid
-            if response != False:
-                # return response
+            if 'ERROR' not in response.keys():
+                # return valid response
                 return JSONResponse(content=response)
             else:
                 # response failed to adhere to expected format
@@ -168,7 +168,7 @@ def main():
     
     # Prepare and evaluate the model
     # Ensures that the server is only started when the model is successfully loaded
-    if model.load(test_size=50):
+    if model.load(test_size=25):
         print('\nModel loaded successfully!\n')
         print('\nStarting Server..\n')
         # If the model is successfully loaded, run the server

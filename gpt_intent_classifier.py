@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import random
 import openai
 import pandas as pd
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import pathlib
 import jinja2
 import numpy as np
@@ -40,10 +40,10 @@ class GPTIntentClassifier(IntentClassifier):
         is_ready() -> bool:
             Check if the classifier is ready to classify intents.
 
-        classify_intent(prompt: str) -> str:
+        classify_intent(prompt: str) -> dict:
             Classify the intent of a given prompt.
 
-        load_model(model_path: str) -> None:
+        load_model(model_path: str) -> bool:
             Load the intent classifier model from the specified path.
 
     Note:
@@ -72,14 +72,17 @@ class GPTIntentClassifier(IntentClassifier):
         
     def is_ready(self, text: str = 'Athens airport to city center') -> bool:
         """Check if the classifier is ready to classify intents."""
-       
-        # test classifier
-        response = self.classify_intent(text=text)
-        # valid response
-        if response != False: 
-            return True
-        else: 
-            return False
+        try:
+            # test classifier / returns dict 
+            response = self.classify_intent(text=text)
+            if 'ERROR' in response.keys():
+                return False
+            else:
+                return True 
+        except Exception as e:
+            # Pass the exception to FastAPI for handling
+            raise HTTPException(status_code=500, detail={"label": "INTERNAL_ERROR", "message": str(e)})
+        
         
         
     def create_label_intents(self, intents: list()) -> List[Dict[str, str]]:
@@ -291,7 +294,7 @@ class GPTIntentClassifier(IntentClassifier):
         return pred_labels
 
     @staticmethod
-    def preprocess_text(input_text: str):
+    def preprocess_text(input_text: str) -> str:
         """
         Preprocesses the input text by tokenizing, removing stopwords, and removing special characters.
 
@@ -319,7 +322,7 @@ class GPTIntentClassifier(IntentClassifier):
         return preprocessed_text
     
     
-    def load(self, test_size: int = 40):        
+    def load(self, test_size: int = 40)  -> bool:        
         """
         Load function responsible for initializing the model before running the server.
 
@@ -361,6 +364,9 @@ class GPTIntentClassifier(IntentClassifier):
         - The general accuracy of the model on the test dataset is above 80%.
         - If loading is successful, the function returns True.
         - If loading fails, the caller can handle the False return value appropriately.
+        
+        Raises:
+            HTTPException: If an internal server error occurs during loading.
 
         """
         try:
@@ -477,41 +483,46 @@ class GPTIntentClassifier(IntentClassifier):
             Dict[str, List[Dict[str, str]]]: A dictionary containing a list of dictionaries with 'label' keys.
 
         Example:
-            >>> ServerResponseFormatter.format_server_response(['flight', 'flight+airfare', 'city'])
-            {'intents': [{'label': 'flight'}, {'label': 'flight+airfare'}, {'label': 'city'}]}
+            >>> ServerResponseFormatter.format_server_response(['flight', 'airfare', 'city'])
+            {'intents': [{'label': 'flight'}, {'label': 'airfare'}, {'label': 'city'}]}
         """
         return {'intents': [{'label': label} for label in input_list]}
     
-    def classify_intent(self, text: str) -> str:
+    def classify_intent(self, text: str) -> Dict:
         """
-        Classify the intent of the input text using the GPT model.
+        Classify the intent of the input text using the GPT model and return a formatted response.
 
         Parameters:
             text (str): The input text to classify.
 
         Returns:
-            str: The classified intent in a formatted server response.
+            Dict: A dictionary representing the formatted server response containing the classified intents.
             
-            Example:  
-            '''
-             { "intents": [
+            Returns {'error': 'BAD RESPONSE'} if model output was unexpected. This case does NOT raise an exception, 
+            as during the evaluation we want to log malformed responses.  
+
+        Raises:
+            HTTPException: If an internal server error occurs during processing.
+
+        Example:
+            {
+                "intents": [
                     {"label": "flight"},
                     {"label": "aircraft"},
                     {"label": "capacity"}
                 ]
             }
-            '''
 
         Explanation:
-            This function classifies the intent of the input text using the GPT model.
-            It follows these steps:
-            1. Preprocesses the input text to prepare it for classification.
-            2. Constructs a prompt from the preprocessed text to feed into the GPT model.
+            This function preprocesses the input text, classifies its intent using the GPT model, and formats
+            the response into a dictionary suitable for a server response. It follows these steps:
+            
+            1. Preprocesses the input text.
+            2. Constructs a prompt from the preprocessed text.
             3. Uses the GPT model to predict the intent labels for the prompt.
-            4. Validates the format of the predicted labels to ensure they match the expected format.
+            4. Validates the format of the predicted labels.
             5. Converts the predicted labels to actual intent values.
-            6. Formats the response into a server-friendly format.
-            7. Returns the formatted response.
+            6. Formats the response into a dictionary with keys representing the intents.
 
             Input Processing:
             - The input text is preprocessed using the preprocess_text method from the GPTIntentClassifier class.
@@ -525,15 +536,9 @@ class GPTIntentClassifier(IntentClassifier):
 
             Exception Handling:
             - If the response from the model is malformed or does not match the expected format, an error is logged,
-            and False is returned.
-            - The caller of the classify_intent function can handle the False return value appropriately,
-            such as logging an error or returning an appropriate HTTP response.
-
-        Example Action:
-        - The function takes an input text and classifies its intent using the GPT model.
-        - If the classification is successful and the response is in the expected format, the function returns the classified intent.
-        - If the response is malformed or does not match the expected format, the function returns False.
-
+            and an error response is returned.
+            - The caller of the classify_intent function can handle the error response appropriately, such as logging
+            an error or returning an appropriate HTTP response.
         """
         try: 
             # preprocess input
@@ -553,7 +558,7 @@ class GPTIntentClassifier(IntentClassifier):
                 return formatted_response
             else: # bad response
                 print('bad response: ', pred_labels)
-                return False
+                return {'ERROR': 'BAD RESPONSE'}
             
         except Exception as e:
             # Pass the exception to FastAPI for handling
@@ -604,7 +609,7 @@ class GPTIntentClassifier(IntentClassifier):
         # Save DataFrame to file
         df.to_csv(file_path, sep='\t')
         
-    def calculate_confusion_matrix(self, actual_intents, predicted_intents):
+    def calculate_confusion_matrix(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame():
         """
         Calculate the confusion matrix.
 
@@ -666,7 +671,7 @@ class GPTIntentClassifier(IntentClassifier):
 
         return df_confusion_matrix
 
-    def calculate_accuracy(self, actual_intents, predicted_intents):
+    def calculate_accuracy(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame:
         """
         Calculate the accuracy of the intent classifier.
         Accuracy measures the proportion of correctly classified cases from the total number of objects in the dataset.
@@ -706,7 +711,7 @@ class GPTIntentClassifier(IntentClassifier):
 
         return accuracy_df
     
-    def calculate_precision(self, actual_intents, predicted_intents):
+    def calculate_precision(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame:
         """
         Calculate precision for each class.
         Precision is calculated as the fraction of instances 
@@ -748,7 +753,7 @@ class GPTIntentClassifier(IntentClassifier):
         
         return precision_df
     
-    def calculate_recall(self, actual_intents, predicted_intents):
+    def calculate_recall(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame:
         """
         Calculate recall for each class. 
         Recall is calculated as the fraction of instances in a class that the model correctly classified 
@@ -866,7 +871,7 @@ class GPTIntentClassifier(IntentClassifier):
         # assign sampled test set to test_ds
         self.test_ds = sample_ds
 
-    def process_evaluation_dataset(self, test_size: int = 100):
+    def process_evaluation_dataset(self, test_size: int = 100) -> Tuple[List[str], List[List[str]]]:
         """
         Process the evaluation dataset for intent classification.
 
@@ -952,7 +957,7 @@ class GPTIntentClassifier(IntentClassifier):
         for pos, query in enumerate(queries): 
             response = self.classify_intent(query)
             # bad response
-            if response == False: 
+            if 'ERROR' in response.keys(): 
                 # Count invalid
                 invalid_res += 1
                 # remember positions of failed responses

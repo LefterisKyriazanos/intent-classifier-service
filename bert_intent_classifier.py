@@ -39,7 +39,7 @@ class BERTIntentClassifier(IntentClassifier):
         # Implement BERTIntentClassifier-specific readiness check
         pass
 
-    def classify_intent(self, prompt: str) -> str:
+    def classify_intent(self, prompt: str) -> dict:
         """
         Classify the intent of a given prompt using the BERT model.
 
