@@ -9,7 +9,7 @@ The model is trained to classify user queries into various intents related to av
 The repository also includes a FastAPI script (`server.py`) that serves as an API endpoint to classify user queries using the trained model.  
 You can send a POST request with a user query, and the API will respond with the 3 most possible intents.  
 
-**Example response: ** 
+**Example response:** 
 
 ```json
 {
@@ -28,7 +28,7 @@ The implementation currently supports 2 classifier types:
 
 **Example:** 
 
-```json
+```
 """  
 intent: flight_time  
 description: This intent is about obtaining flight_time information  
@@ -40,36 +40,36 @@ intent: airfare
 description: This intent is about obtaining airfare information  
 label: [2] 
 """  
-```  
+```
 
 - `few-shot`:  the labels, names and a at least one training example per class are provided to the model as reference.  
 
 **Example:** (labels)  
 
-```json
+```
 """  
-intent: flight    
-label: 0    
-"""  
+intent: flight
+label: 0
+"""
 
-"""  
-intent: meal 
-label: 1  
-"""  
-```  
+"""
+intent: meal
+label: 1
+"""
+```
 
 **Example:** (training examples)  
 
-```json
-"""  
-text: cost fly Atlanta San Francisco  
-label: [0]  
-"""  
+```
+"""
+text: cost fly Atlanta San Francisco
+label: [0]
+"""
  
-"""  
-text: types meals available    
-label: [1]  
-"""   
+"""
+text: types meals available
+label: [1]
+"""
 ```  
 
 The service is making requests to the `gpt-3-5-turbo` model by default.  
