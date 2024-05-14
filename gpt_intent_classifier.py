@@ -879,11 +879,7 @@ class GPTIntentClassifier(IntentClassifier):
             test_size (int): The number of samples to include in the evaluation dataset. Defaults to 100.
 
         Preprocessing Steps:
-            1. Reading the Dataset:
-                - Reads the evaluation dataset from the specified file path using pd.read_csv.
-                - Expects the dataset to be in a tab-separated format with columns 'user_prompt' and 'actual_intents'.
-
-            2. Splitting Actual Intents:
+            1. Splitting Actual Intents:
                 - Splits the 'actual_intents' column into lists using str.split('+').
                 - Creates a new column 'actual_intents_list' containing lists of intents for each user prompt.
 
