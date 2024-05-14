@@ -66,9 +66,9 @@ class GPTIntentClassifier(IntentClassifier):
         self.labeled_intents = []
         self.training_examples = []
 
-        # datasets
-        self.train_ds = pd.read_csv(train_ds_path, sep='\t', header=None, names= ['user_prompt', 'intents'])
-        self.test_ds = pd.read_csv(test_ds_path, sep='\t', header=None, names= ['user_prompt', 'actual_intents'])
+        # datasets will be inialized based on user given train and test paths
+        self.train_ds = pd.DataFrame()
+        self.test_ds = pd.DataFrame()
         
     def is_ready(self, text: str = 'Athens airport to city center') -> bool:
         """Check if the classifier is ready to classify intents."""
@@ -319,7 +319,7 @@ class GPTIntentClassifier(IntentClassifier):
         return preprocessed_text
     
     
-    def load(self):        
+    def load(self, test_size: int = 40):        
         """
         Load function responsible for initializing the model before running the server.
 
@@ -364,9 +364,11 @@ class GPTIntentClassifier(IntentClassifier):
 
         """
         try:
+            
+            # Initialize datasets
+            self.train_ds = pd.read_csv(self.train_ds_path, sep='\t', header=None, names= ['user_prompt', 'intents'])
+            self.test_ds = pd.read_csv(self.test_ds_path, sep='\t', header=None, names= ['user_prompt', 'actual_intents'])
             # Get unique intents list from training DS
-            # To add/update intents, modify the tsv dataset at self.train_ds_path with at least one example of the new intents 
-            # Future Improvement: uncouple the addition/update of intents from the training ds
             self.train_ds['intents_list'] = self.train_ds['intents'].str.split('+')
 
             # Explode the list into separate rows & extract all unique classes
@@ -384,7 +386,7 @@ class GPTIntentClassifier(IntentClassifier):
                 self.pick_training_examples(training_examples=examples, max_per_label= 2)
             
             # evaluate before finishing loading
-            valid_res, invalid_res, accuracy, precision, recall, confusion_matrix = self.evaluate(test_size=10)
+            valid_res, invalid_res, accuracy, precision, recall, confusion_matrix = self.evaluate(test_size=test_size)
             
             #
             # action based on evaluation metrics
@@ -392,9 +394,9 @@ class GPTIntentClassifier(IntentClassifier):
             
             # example action
             # load successfully only when at least 99.5% of responses were successful and general accuracy over 85%
-            if (valid_res >= ((valid_res+invalid_res) * 0.995)) & (accuracy['accuracy'].values[0] >= 0.85):              
-                print('\n model loaded successfully!')
-                return True
+            if valid_res >= ((valid_res+invalid_res) * 0.995):
+                if (accuracy['accuracy'].values[0] >= 0.85):              
+                    return True
             else: # failed evaluation
                 return False
         except Exception as e:
@@ -422,25 +424,27 @@ class GPTIntentClassifier(IntentClassifier):
                 {'label': 1, 'intent': 'Goodbye'}, {'label': 2, 'intent': 'Question'}], the function will return 
                 ['Greeting', 'Goodbye', 'Question'].
         """
-        # Convert string to list of integers
-        pred_labels = [int(x) for x in pred_labels.strip('[]').split(',')]
+        # Remove leading and trailing whitespace, and strip the square brackets
+        pred_labels_cleaned = pred_labels.strip().strip('[]')
+        # Split the string by comma and strip whitespace from each element
+        pred_labels_list = [int(label.strip()) for label in pred_labels_cleaned.split(',')]
         # Map each integer to the corresponding label value
-        predicted_intents = [self.labeled_intents[label]["intent"] for label in pred_labels]
+        predicted_intents = [self.labeled_intents[label]["intent"] for label in pred_labels_list]
         return predicted_intents
     
-    @staticmethod
-    def validate_response(input_string):
+    def validate_response(self, input_string):
         """
-        Validate if a string resembles a Python-like list of 3 integers.
+        Validate if a string resembles a Python-like list of 3 integers and if all integers are valid labels.
 
         Args:
             input_string (str): The string to validate.
 
         Returns:
-            bool: True if the input string resembles a Python-like list of 3 integers,
-                  False otherwise.
+            bool: True if the input string resembles a Python-like list of 3 integers, and all integers are valid labels.
+                False otherwise.
         """
-        
+        # extract valid (expected) labels
+        valid_labels = [item['label'] for item in self.labeled_intents]
         # trim string "  Hello, world!   " -> "Hello, world!"
         trimmed_string = input_string.strip()
         # Define a regular expression pattern to match a Python-like list of 3 integers
@@ -449,11 +453,16 @@ class GPTIntentClassifier(IntentClassifier):
         # Use the fullmatch function to match the entire input string against the pattern
         match = re.fullmatch(pattern, trimmed_string)
 
-        # If a full match is found, return True
+         # Check if the input string matches the pattern
         if match:
-            return True
-        else:
-            return False
+            # Extract integers from the matched string
+            integers = [int(x) for x in re.findall(r'\d+', trimmed_string)]
+            # Check if all integers are valid labels
+            if all(label in valid_labels for label in integers):
+                return True
+
+        # invalid response 
+        return False
 
     @staticmethod
     def format_server_response(input_list: List[str]) -> Dict[str, List[Dict[str, str]]]:
@@ -536,16 +545,14 @@ class GPTIntentClassifier(IntentClassifier):
             pred_labels = self.get_prediction_labels(prompt=prompt)
         
             # validate response's format
-            if GPTIntentClassifier.validate_response(pred_labels): # response is in expected format
-                
+            if self.validate_response(pred_labels): # response is in expected format and contains only valid labels
                 # process response and convert to actual labels 
                 pred_intents = self.convert_pred_labels_to_intents(pred_labels= pred_labels)
                 # format response 
                 formatted_response = GPTIntentClassifier.format_server_response(input_list=pred_intents)
                 return formatted_response
-            else: # malformed response
-                print('malformed response: ', pred_labels)
-                # Will raise error 500 on server
+            else: # bad response
+                print('bad response: ', pred_labels)
                 return False
             
         except Exception as e:
@@ -787,7 +794,7 @@ class GPTIntentClassifier(IntentClassifier):
 
         return recall_df
     
-    def sample_evaluation_data(self, test_size: int = 20):
+    def sample_evaluation_data(self, test_size: int = 40):
        
         """
         Sample data from the evaluation dataset ensuring each class is represented equally.
@@ -823,6 +830,7 @@ class GPTIntentClassifier(IntentClassifier):
         print('\ntest size: ', test_size)
         print('unique eval classes: ', classes_count)
         print('eval samples per class: ', samples_per_class)
+        print('any remaining test records will be sampled randomly')
         
         if samples_per_class > 0: # test_size is greater than class count
 
@@ -943,7 +951,7 @@ class GPTIntentClassifier(IntentClassifier):
         # Test cases one by one
         for pos, query in enumerate(queries): 
             response = self.classify_intent(query)
-            # Malformed response
+            # bad response
             if response == False: 
                 # Count invalid
                 invalid_res += 1
@@ -974,6 +982,12 @@ class GPTIntentClassifier(IntentClassifier):
                 - confusion_matrix (pandas DataFrame): The confusion matrix of the classifier.
         """
         queries, actual_intents = self.process_evaluation_dataset(test_size)
+        
+        # initialize objects to store metrics
+        accuracy = pd.DataFrame()
+        precision = pd.DataFrame()
+        recall = pd.DataFrame()
+        confusion_matrix = pd.DataFrame()
     
         # initialize list to store valid responses
         predicted_intents = []
@@ -988,29 +1002,32 @@ class GPTIntentClassifier(IntentClassifier):
         # valid & invalid response count
         print('\nvalid,  invalid')
         print(valid_res, invalid_res)
-        # Replace labels with actual intents
-        # eg. extract ['flight', 'airfare', 'ground_service'] for each test query 
-        predicted_intent_lists = GPTIntentClassifier.extract_predicted_intents(predicted_intents=predicted_intents)
+        
+        if valid_res > 0: # we can evaluate 
+            # Replace labels with actual intents
+            # eg. extract ['flight', 'airfare', 'ground_service'] for each test query 
+            predicted_intent_lists = GPTIntentClassifier.extract_predicted_intents(predicted_intents=predicted_intents)
 
-        # calculate accuracy
-        accuracy  = self.calculate_accuracy(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
-        print('\n:  ', accuracy)
-        # calculate precision
-        precision = self.calculate_precision(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
-        print('\n:  ', precision)
-        # calculate recall 
-        recall = self.calculate_recall(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
-        print('\n:  ', recall)
-        # Create a confusion matrix
-        confusion_matrix = self.calculate_confusion_matrix(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
-        
-        # save as csv's
-        # GPTIntentClassifier.save_as_csv(confusion_matrix, file_path=f'./model_evaluation/{self.classifier_type}_confusion_matrix.csv')
-        # GPTIntentClassifier.save_as_csv(accuracy, file_path=f'./model_evaluation/{self.classifier_type}_accuracy.csv')
-        # GPTIntentClassifier.save_as_csv(precision, file_path=f'./model_evaluation/{self.classifier_type}_precision.csv')
-        # GPTIntentClassifier.save_as_csv(recall, file_path=f'./model_evaluation/{self.classifier_type}_recall.csv')
-        
+            # calculate accuracy
+            accuracy  = self.calculate_accuracy(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
+            print('\n:  ', accuracy)
+            # calculate precision
+            precision = self.calculate_precision(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
+            print('\n:  ', precision)
+            # calculate recall 
+            recall = self.calculate_recall(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
+            print('\n:  ', recall)
+            # Create a confusion matrix
+            confusion_matrix = self.calculate_confusion_matrix(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
+            
+            # save as csv's
+            # GPTIntentClassifier.save_as_csv(confusion_matrix, file_path=f'./model_evaluation/{self.classifier_type}_confusion_matrix.csv')
+            # GPTIntentClassifier.save_as_csv(accuracy, file_path=f'./model_evaluation/{self.classifier_type}_accuracy.csv')
+            # GPTIntentClassifier.save_as_csv(precision, file_path=f'./model_evaluation/{self.classifier_type}_precision.csv')
+            # GPTIntentClassifier.save_as_csv(recall, file_path=f'./model_evaluation/{self.classifier_type}_recall.csv')
+            
         return valid_res, invalid_res, accuracy, precision, recall, confusion_matrix
+        
     
 def main():
     print('in main')
