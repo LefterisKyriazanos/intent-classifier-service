@@ -12,8 +12,8 @@ class IntentClassifier(ABC):
         classify_intent(prompt: str) -> str:
             Classify the intent of a given prompt.
 
-        load(model_path: str) -> None:
-            Load the intent classifier model from the specified path.
+        load() -> None:
+            Load the intent classifier model.
 
         This class serves as a blueprint for implementing concrete classifier models.
     """

@@ -8,8 +8,9 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY . .
 # Initiating model_evaluation folder (if it doesn't already exist)
 RUN mkdir -p model_evaluation
+# install nltk dependency  
+RUN [ "python3", "-c", "import nltk; nltk.download('punkt', download_dir='/usr/local/nltk_data')" ] 
 # Set the entry point script
-RUN [ "python3", "-c", "import nltk; nltk.download('punkt', download_dir='/usr/local/nltk_data')" ]
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

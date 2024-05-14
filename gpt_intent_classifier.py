@@ -566,7 +566,7 @@ class GPTIntentClassifier(IntentClassifier):
             
     
     @staticmethod
-    def extract_predicted_intents(predicted_intents):
+    def extract_predicted_intents(predicted_intents: List[Dict]) -> List[List[str]]:
         """
         Extract intent labels from the predicted_intents list.
 
@@ -883,19 +883,19 @@ class GPTIntentClassifier(IntentClassifier):
                 - Splits the 'actual_intents' column into lists using str.split('+').
                 - Creates a new column 'actual_intents_list' containing lists of intents for each user prompt.
 
-            3. Extracting Unique Targets:
+            2. Extracting Unique Targets:
                 - Extracts unique intents present in the 'actual_intents_list' column.
                 - Determines the full range of intents present in the evaluation dataset.
 
-            4. Identifying Unseen Classes:
+            3. Identifying Unseen Classes:
                 - Compares the unique intents with the intents known to the model ('model_known_targets').
                 - Identifies any intents present in the evaluation dataset but not known to the model as unseen classes.
 
-            5. Filtering Unseen Classes:
+            4. Filtering/Log Unseen Classes:
                 - Removes data corresponding to unseen classes from the evaluation dataset.
                 - Ensures compatibility between the evaluation dataset and the model's known intents.
 
-            6. Adjusting Test Size:
+            5. Adjusting Test Sample:
                 - If the processed dataset exceeds the specified 'test_size', samples a subset to match the desired size.
                -  Ensures that the evaluation dataset adequately represents the full range of classes for robust evaluation.
 
@@ -929,7 +929,7 @@ class GPTIntentClassifier(IntentClassifier):
         
         return queries, actual_intents
         
-    def predict_test_set(self, queries):
+    def predict_test_set(self, queries: List[str]):
         """
         Get predictions for the given set of queries and count valid vs invalid responses.
 
