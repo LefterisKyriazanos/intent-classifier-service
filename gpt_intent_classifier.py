@@ -20,37 +20,31 @@ load_dotenv()
 
 class GPTIntentClassifier(IntentClassifier):
     """
-    Intent classifier using OpenAI's GPT models through OpenAI API.
+    Initialize the GPTIntentClassifier.
 
-    This classifier utilizes OpenAI's GPT models accessed through the OpenAI API.
-    It can handle different GPT models and supports two classifier types: zero-shot and few-shot.
-
-    Parameters:
+    Args:
         model_name (str): Name of the GPT model to use. Defaults to "gpt-3.5-turbo".
         classifier_type (str): Type of classifier to use. Options are "zero-shot" and "few-shot".
-                               Defaults to 'zero-shot'.
+                                Defaults to 'zero-shot'.
         train_ds_path (str): Path to the training dataset. Defaults to "./data/atis/train.tsv".
+        test_ds_path (str): Path to the test dataset. Defaults to "./data/atis/test.tsv".
 
     Attributes:
         openai_api_key (str): API key for accessing the OpenAI API.
         model_name (str): Name of the GPT model being used.
-        train_ds_path (str): Path to the training dataset.
         classifier_type (str): Type of classifier being used.
-
-    Methods:
-        is_ready() -> bool:
-            Check if the classifier is ready to classify intents.
-
-        classify_intent(prompt: str) -> dict:
-            Classify the intent of a given prompt.
-
-        load_model(model_path: str) -> bool:
-            Load the intent classifier model from the specified path.
+        train_ds_path (str): Path to the training dataset.
+        test_ds_path (str): Path to the test dataset.
+        labeled_intents (list): List of labeled intents from the training dataset.
+        training_examples (list): List of training examples from the training dataset.
+        train_ds (DataFrame): DataFrame containing the training dataset.
+        test_ds (DataFrame): DataFrame containing the test dataset.
 
     Note:
         To use this class, you need to have an OpenAI API key. Update the 'openai_api_key' attribute
         with your API key before using the classifier.
     """
+
     def __init__(self, model_name = "gpt-3.5-turbo", classifier_type = 'zero-shot', train_ds_path = "./data/atis/train.tsv", test_ds_path= "./data/atis/test.tsv"):
         
         super().__init__()  # Call superclass constructor
@@ -86,7 +80,7 @@ class GPTIntentClassifier(IntentClassifier):
         
         
         
-    def create_label_intents(self, intents: list()) -> List[Dict[str, str]]:
+    def create_label_intents(self, intents: List[str]) -> List[Dict[str, str]]:
         """
         Generate a list of labels and intents based on a list of unique intents.
 

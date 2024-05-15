@@ -42,7 +42,7 @@ class IntentClassifier(ABC):
         pass
     
     @abstractmethod
-    def load(self, test_size: int) -> None:
+    def load(self) -> None:
         """
         Load the intent classifier model from the specified path.
 
