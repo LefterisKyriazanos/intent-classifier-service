@@ -30,7 +30,6 @@ class GPTIntentClassifier(IntentClassifier):
         test_ds_path (str): Path to the test dataset. Defaults to "./data/atis/test.tsv".
 
     Attributes:
-        openai_api_key (str): API key for accessing the OpenAI API.
         model_name (str): Name of the GPT model being used.
         classifier_type (str): Type of classifier being used.
         train_ds_path (str): Path to the training dataset.
