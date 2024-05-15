@@ -49,12 +49,12 @@ label: [2]
 ```
 """  
 intent: flight
-label: 0
+label: [0]
 """
 
 """
 intent: meal
-label: 1
+label: [1]
 """
 ```
 
