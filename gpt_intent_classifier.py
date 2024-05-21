@@ -914,6 +914,7 @@ class GPTIntentClassifier(IntentClassifier):
             mlb = MultiLabelBinarizer()
             y_combined = actual_intents + y_pred_intents
             mlb.fit(y_combined)
+            
             # Transform the Labels
             y_true_binarized = mlb.transform(actual_intents)
             y_pred_binarized = mlb.transform(y_pred_intents)
