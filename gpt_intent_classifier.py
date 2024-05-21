@@ -601,9 +601,8 @@ class GPTIntentClassifier(IntentClassifier):
         Returns:
         None
         """
-        df.reset_index(drop=True)
         # Save DataFrame to file
-        df.to_csv(file_path, index=False)
+        df.to_csv(file_path)
         
     def calculate_custom_confusion_matrix(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame:
         """
