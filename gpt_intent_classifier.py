@@ -668,7 +668,8 @@ class GPTIntentClassifier(IntentClassifier):
 
         return df_confusion_matrix
 
-    def calculate_accuracy(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame:
+    @staticmethod
+    def calculate_accuracy(actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> Tuple[float, pd.DataFrame]:
         """
         Calculate the accuracy of the intent classifier.
         Accuracy measures the proportion of correctly classified cases from the total number of objects in the dataset.
@@ -682,12 +683,15 @@ class GPTIntentClassifier(IntentClassifier):
         predicted_intents (list of lists): A list of lists where each sublist represents the predicted labels for each test case.
 
         Returns:
-        accuracy_df (pandas.DataFrame): A DataFrame containing the accuracy of the intent classifier.
+        accuracy: float that represents the average accuracy of the intent classifier.
+        incorrect_predictions: pd.dataframe containing the incorrect predictions.  
         """
 
         matched_intent_count = 0
         mismatched_intent_count = 0
-
+        # List to collect rows for incorrect predictions
+        incorrect_predictions_list = []
+        
         # Calculate accuracy
         for i in range(len(actual_intents)):
             actual_intent = actual_intents[i]
@@ -697,12 +701,21 @@ class GPTIntentClassifier(IntentClassifier):
                 matched_intent_count += 1
             else:
                 mismatched_intent_count += 1
+                # Collect the incorrect prediction data
+                incorrect_predictions_list.append({
+                    'Actual Intents': actual_intent,
+                    'Predicted Intents': predicted_intent
+                })
+        
+        # Convert the list of incorrect predictions to a DataFrame
+        incorrect_predictions = pd.DataFrame(incorrect_predictions_list)
+
 
         # Calculate accuracy score
         total_cases = matched_intent_count + mismatched_intent_count
         accuracy = matched_intent_count / total_cases
         
-        return accuracy
+        return accuracy, incorrect_predictions
     
     def sample_evaluation_data(self, test_size: int = 40):
        
@@ -931,8 +944,9 @@ class GPTIntentClassifier(IntentClassifier):
             # create a class vs class confusion matrix
             custom_confusion_matrix = self.calculate_custom_confusion_matrix(actual_intents=actual_intents, predicted_intents=y_pred_intents)
 
-            # calculate avg metrics
-            accuracy_avg  = self.calculate_accuracy(actual_intents=actual_intents, predicted_intents=y_pred_intents)
+            # avg metrics 
+            # calculate avg accuracy and log incorrect predictions (df)
+            accuracy_avg, incorrect_predictions  = GPTIntentClassifier.calculate_accuracy(actual_intents=actual_intents, predicted_intents=y_pred_intents)
 
             # using 'macro' (Class-Specific Performance - treat all classes equally) 
             precision_avg_macro = precision_score(y_true_binarized, y_pred_binarized, average='macro', zero_division=0)
@@ -997,6 +1011,7 @@ class GPTIntentClassifier(IntentClassifier):
             GPTIntentClassifier.save_as_csv(custom_confusion_matrix, file_path=f'./model_evaluation/{self.classifier_type}_custom_confusion_matrix.csv')
             GPTIntentClassifier.save_as_csv(metrics_per_class_df, file_path=f'./model_evaluation/{self.classifier_type}_metrics_per_class.csv')
             GPTIntentClassifier.save_as_csv(average_metrics_df, file_path=f'./model_evaluation/{self.classifier_type}_average_metrics.csv')
+            GPTIntentClassifier.save_as_csv(incorrect_predictions, file_path=f'./model_evaluation/{self.classifier_type}_incorrect_predictions.csv')
             
         return valid_res, invalid_res, metrics_per_class_df, average_metrics_df
         
