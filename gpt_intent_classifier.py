@@ -9,6 +9,8 @@ import jinja2
 import numpy as np
 import re
 import nltk
+from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, multilabel_confusion_matrix
 nltk.download('stopwords')  
 nltk.download('punkt')  
 from nltk.corpus import stopwords
@@ -382,10 +384,10 @@ class GPTIntentClassifier(IntentClassifier):
                 # Transform training data from dataframe to python list of dicts, with user_prompts as keys and intent_ids as values
                 examples = self.create_examples()
                 # Pick a representative subset of examples for each class equal to 'max_per_label'
-                self.pick_training_examples(training_examples=examples, max_per_label= 2)
+                self.pick_training_examples(training_examples=examples, max_per_label = 2)
             
             # evaluate before finishing loading
-            valid_res, invalid_res, accuracy, precision, recall, confusion_matrix = self.evaluate(test_size=test_size)
+            valid_res, invalid_res, metrics_per_class, avg_evaluation_metrics = self.evaluate(test_size=test_size)
             
             #
             # action based on evaluation metrics
@@ -394,7 +396,7 @@ class GPTIntentClassifier(IntentClassifier):
             # example action
             # load successfully only when at least 99.5% of responses were successful and general accuracy over 85%
             if valid_res >= ((valid_res+invalid_res) * 0.995):
-                if (accuracy['accuracy'].values[0] >= 0.80):              
+                if (avg_evaluation_metrics.loc[avg_evaluation_metrics['Metric'] == 'Accuracy', ['Value']].values[0] >= 0.80):              
                     return True
             else: # failed evaluation
                 return False
@@ -402,7 +404,7 @@ class GPTIntentClassifier(IntentClassifier):
             # Pass the exception to FastAPI for handling
             raise HTTPException(status_code=500, detail={"label": "INTERNAL_ERROR", "message": str(e)})
     
-    def convert_pred_labels_to_intents(self, pred_labels: str) -> list():
+    def convert_pred_labels_to_intents(self, pred_labels: str) -> list:
         """
         Convert predicted labels to intents using a mapping from integer labels to intent values.
 
@@ -588,7 +590,7 @@ class GPTIntentClassifier(IntentClassifier):
         return predicted_intent_lists
     
     @staticmethod
-    def save_as_csv(df, file_path):
+    def save_as_csv(df: pd.DataFrame, file_path: str):
         """
         Save a DF as a csv.
 
@@ -599,12 +601,13 @@ class GPTIntentClassifier(IntentClassifier):
         Returns:
         None
         """
+        df.reset_index(drop=True)
         # Save DataFrame to file
-        df.to_csv(file_path, sep='\t')
+        df.to_csv(file_path, index=False)
         
-    def calculate_confusion_matrix(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame():
+    def calculate_custom_confusion_matrix(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame:
         """
-        Calculate the confusion matrix.
+        Calculate a custom confusion matrix. This matrix can provide insight into the underlying relationships between different classes. 
 
         Given a prediction, all three prediction values, for example ['flight', 'flight_no', 'airport'], are counted for each test intent(s), such as ['flight_time','flight_no'].
 
@@ -626,6 +629,8 @@ class GPTIntentClassifier(IntentClassifier):
             
         This approach enables us to discern not only how frequently certain classes appear together    
         but also to identify any underlying associations the model implicitly recognizes.  
+        The final matrix is a n*n, where n is the number of unique classes. 
+        Each cell represents how many times the actual label (row) was confused/correlated with the pred label (column)
 
         Parameters:
             actual_intents (list of lists): A list of lists containing the actual intents for each test case.
@@ -688,109 +693,17 @@ class GPTIntentClassifier(IntentClassifier):
         for i in range(len(actual_intents)):
             actual_intent = actual_intents[i]
             predicted_intent = predicted_intents[i]
-            print(actual_intent, predicted_intent)
-            for intent in actual_intent: # case might have more than 1 intents
-                if intent in predicted_intent:  # Actual intent is among the predicted intents
-                    matched_intent_count += 1
-                else:
-                    mismatched_intent_count += 1
+            print(actual_intent, predicted_intents[i])
+            if (all(x in predicted_intent for x in actual_intent)): # actual intents are subset of prediction
+                matched_intent_count += 1
+            else:
+                mismatched_intent_count += 1
 
         # Calculate accuracy score
         total_cases = matched_intent_count + mismatched_intent_count
         accuracy = matched_intent_count / total_cases
         
-        # Create DataFrame with accuracy
-        accuracy_df = pd.DataFrame({'accuracy': [accuracy]})
-
-        return accuracy_df
-    
-    def calculate_precision(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame:
-        """
-        Calculate precision for each class.
-        Precision is calculated as the fraction of instances 
-        correctly classified as belonging to a specific class out of all instances 
-        the model predicted to belong to that class (TP/(TP+FP)).
-
-        Parameters:
-        actual_intents (list): A list containing the actual intents for each test case.
-        predicted_intents (list of lists): A list of lists where each sublist represents the predicted labels for each test case.
-        labeled_intents (list of dicts): A list of dictionaries containing labeled intents.
-
-        Returns:
-        precision_df (pandas.DataFrame): A DataFrame containing precision for each class.
-        """
-
-        # Initialize dictionaries to store true positives (TP) and false positives (FP) for each class
-        tp_dict = {intent['intent']: 0 for intent in self.labeled_intents}
-        fp_dict = {intent['intent']: 0 for intent in self.labeled_intents}
-
-        # Calculate true positives (TP) and false positives (FP) for each class
-        for actual_intent, predicted_intent in zip(actual_intents, predicted_intents):
-            for intent in predicted_intent:
-                if intent in actual_intent:
-                    tp_dict[intent] += 1  # True positive
-                else:
-                    fp_dict[intent] += 1  # False positive
-
-        # Calculate precision for each class
-        precision_dict = {}
-        for intent in self.labeled_intents:
-            tp = tp_dict[intent['intent']]
-            fp = fp_dict[intent['intent']]
-            precision = tp / (tp + fp) if tp + fp > 0 else 0  # Precision formula
-            precision_dict[intent['intent']] = precision
-
-        # Create DataFrame with precision for each class
-        precision_df = pd.DataFrame({'intent': [intent['intent'] for intent in self.labeled_intents],
-                                     'precision': [precision_dict[intent['intent']] for intent in self.labeled_intents]})
-        
-        return precision_df
-    
-    def calculate_recall(self, actual_intents: List[List[str]], predicted_intents: List[List[str]]) -> pd.DataFrame:
-        """
-        Calculate recall for each class. 
-        Recall is calculated as the fraction of instances in a class that the model correctly classified 
-        out of all instances in that class (TP/(TP+FN)).
-
-        Parameters:
-        actual_intents (list): A list containing the actual intents for each test case.
-        predicted_intents (list of lists): A list of lists where each sublist represents the predicted labels for each test case.
-        labeled_intents (list of dicts): A list of dictionaries containing labeled intents.
-
-        Returns:
-        recall_df (pandas.DataFrame): A DataFrame containing recall for each class.
-        """
-
-     
-        # Initialize dictionaries to store true positives (TP) and false negatives (FN) for each class
-        tp_dict = {intent['intent']: 0 for intent in self.labeled_intents}
-        fn_dict = {intent['intent']: 0 for intent in self.labeled_intents}
-
-        # Calculate true positives (TP) and false negatives (FN) for each class
-        for actual_intent, predicted_intent in zip(actual_intents, predicted_intents):
-            # for each class
-            for intent in self.labeled_intents:
-                intent_label = intent['intent']
-                # class label is in actual_intent and was predicted
-                if intent_label in actual_intent and intent_label in predicted_intent:
-                    tp_dict[intent_label] += 1  # True positive
-                elif intent_label in actual_intent and intent_label not in predicted_intent:
-                    fn_dict[intent_label] += 1  # False negative
-
-        # Calculate recall for each class
-        recall_dict = {}
-        for intent in self.labeled_intents:
-            intent_label = intent['intent']
-            tp = tp_dict[intent_label]
-            fn = fn_dict[intent_label]
-            recall = tp / (tp + fn) if tp + fn > 0 else 0  # Recall formula
-            recall_dict[intent_label] = recall
-
-        # Create DataFrame with recall for each class
-        recall_df = pd.DataFrame({'intent': [intent['intent'] for intent in self.labeled_intents],
-                                  'recall': [recall_dict[intent['intent']] for intent in self.labeled_intents]})
-
-        return recall_df
+        return accuracy
     
     def sample_evaluation_data(self, test_size: int = 40):
        
@@ -970,18 +883,10 @@ class GPTIntentClassifier(IntentClassifier):
             tuple: A tuple containing the following evaluation metrics and data:
                 - valid_res (int): The number of valid responses.
                 - invalid_res (int): The number of invalid responses.
-                - accuracy (pandas DataFrame): The accuracy of the classifier.
-                - precision (pandas DataFrame): The precision of the classifier.
-                - recall (pandas DataFrame): The recall of the classifier.
-                - confusion_matrix (pandas DataFrame): The confusion matrix of the classifier.
+                - metrics_per_class_df (pd.dataframe): Evaluation metrics per class
+                - average_metrics_df (pd.dataframe): Evaluation metrics (AVG)
         """
         queries, actual_intents = self.process_evaluation_dataset(test_size)
-        
-        # initialize objects to store metrics
-        accuracy = pd.DataFrame()
-        precision = pd.DataFrame()
-        recall = pd.DataFrame()
-        confusion_matrix = pd.DataFrame()
     
         # initialize list to store valid responses
         predicted_intents = []
@@ -989,38 +894,111 @@ class GPTIntentClassifier(IntentClassifier):
         # get predictions for the dataset
         predicted_intents, valid_res, invalid_res, positions = self.predict_test_set(queries)
         
-        # Remove items from actual_intents where response was invalid
-        for pos in positions:
-            del actual_intents[pos]
-            
         # valid & invalid response count
         print('\nvalid,  invalid')
         print(valid_res, invalid_res)
-        
-        if valid_res > 0: # we can evaluate 
-            # Replace labels with actual intents
-            # eg. extract ['flight', 'airfare', 'ground_service'] for each test query 
-            predicted_intent_lists = GPTIntentClassifier.extract_predicted_intents(predicted_intents=predicted_intents)
 
-            # calculate accuracy
-            accuracy  = self.calculate_accuracy(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
-            print('\n:  ', accuracy)
-            # calculate precision
-            precision = self.calculate_precision(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
-            print('\n:  ', precision)
-            # calculate recall 
-            recall = self.calculate_recall(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
-            print('\n:  ', recall)
-            # Create a confusion matrix
-            confusion_matrix = self.calculate_confusion_matrix(actual_intents=actual_intents, predicted_intents=predicted_intent_lists)
+
+        if valid_res > 0: # we can evaluate 
+           
+            # Prepare Data
+            # Remove items from actual_intents where response was invalid
+            for pos in positions:
+                del actual_intents[pos]
             
-            # save as csv's
-            # GPTIntentClassifier.save_as_csv(confusion_matrix, file_path=f'./model_evaluation/{self.classifier_type}_confusion_matrix.csv')
-            # GPTIntentClassifier.save_as_csv(accuracy, file_path=f'./model_evaluation/{self.classifier_type}_accuracy.csv')
-            # GPTIntentClassifier.save_as_csv(precision, file_path=f'./model_evaluation/{self.classifier_type}_precision.csv')
-            # GPTIntentClassifier.save_as_csv(recall, file_path=f'./model_evaluation/{self.classifier_type}_recall.csv')
+            # Extract the label values
+            # eg. extract ['flight', 'airfare', 'ground_service'] for each test query 
+            y_pred_intents = GPTIntentClassifier.extract_predicted_intents(predicted_intents=predicted_intents)
+
+            # Fit the MultiLabelBinarizer
+            mlb = MultiLabelBinarizer()
+            y_combined = actual_intents + y_pred_intents
+            mlb.fit(y_combined)
+            # Transform the Labels
+            y_true_binarized = mlb.transform(actual_intents)
+            y_pred_binarized = mlb.transform(y_pred_intents)
+
+            # Compute metrics for each class
+            # use zero_division = 0 to avoid inflating the metrics when a class is never predicted
+            precision_per_class = precision_score(y_true_binarized, y_pred_binarized, average=None, zero_division=0)
+            recall_per_class = recall_score(y_true_binarized, y_pred_binarized, average=None, zero_division=0)
+            f1_per_class = f1_score(y_true_binarized, y_pred_binarized, average=None, zero_division=0)
+
+            # Compute confusion matrix
+            confusion_matrices = multilabel_confusion_matrix(y_true_binarized, y_pred_binarized)
+            # Aggregate these matrices
+            overall_confusion_matrix = np.sum(confusion_matrices, axis=0)
+            # create a class vs class confusion matrix
+            custom_confusion_matrix = self.calculate_custom_confusion_matrix(actual_intents=actual_intents, predicted_intents=y_pred_intents)
+
+            # calculate avg metrics
+            accuracy_avg  = self.calculate_accuracy(actual_intents=actual_intents, predicted_intents=y_pred_intents)
+
+            # using 'macro' (Class-Specific Performance - treat all classes equally) 
+            precision_avg_macro = precision_score(y_true_binarized, y_pred_binarized, average='macro', zero_division=0)
+            recall_avg_macro = recall_score(y_true_binarized, y_pred_binarized, average='macro', zero_division=0)
+            f1_avg_macro = f1_score(y_true_binarized, y_pred_binarized, average='macro', zero_division=0)
+
+            # using 'micro' (Global Performance - treat all classes equally) 
+            precision_avg_micro = precision_score(y_true_binarized, y_pred_binarized, average='micro', zero_division=0)
+            recall_avg_micro = recall_score(y_true_binarized, y_pred_binarized, average='micro', zero_division=0)
+            f1_avg_micro = f1_score(y_true_binarized, y_pred_binarized, average='micro', zero_division=0)
+
+            # using 'weighted' (Balanced Evaluation) 
+            precision_avg_weighted = precision_score(y_true_binarized, y_pred_binarized, average='weighted', zero_division=0)
+            recall_avg_weighted = recall_score(y_true_binarized, y_pred_binarized, average='weighted', zero_division=0)
+            f1_avg_weighted = f1_score(y_true_binarized, y_pred_binarized, average='weighted', zero_division=0)
+
+            # Get the class labels
+            class_labels = mlb.classes_
+
+            # Print metrics for each class
+            for i, label in enumerate(class_labels):
+                print(f"\nClass '{label}':")
+                print(f"  Precision: {precision_per_class[i]}")
+                print(f"  Recall: {recall_per_class[i]}")
+                print(f"  F1 Score: {f1_per_class[i]}")
+                print(f"  Confusion Matrix:")
+                print(confusion_matrices[i])
+
+            # Print average metrics
+            print("\nAverage Metrics:")
+            print("Overall Confusion Matrix:")
+            print(overall_confusion_matrix)
+            print(f"  Accuracy: {accuracy_avg}")
+            print(f"  (macro) Precision: {precision_avg_macro}")
+            print(f"  (micro) Precision: {precision_avg_micro}")
+            print(f"  (weighted) Precision: {precision_avg_weighted}")
+            print(f"  (macro) Recall: {recall_avg_macro}")
+            print(f"  (micro) Recall: {recall_avg_micro}")
+            print(f"  (weighted) Recall: {recall_avg_weighted}")
+            print(f"  (macro) F1 Score: {f1_avg_macro}")
+            print(f"  (micro) F1 Score: {f1_avg_micro}")
+            print(f"  (weighted) F1 Score: {f1_avg_weighted}")
+
+            # Create a DataFrame to store the metrics
+            metrics_per_class_df = pd.DataFrame({
+                'Class': class_labels,
+                'Precision': precision_per_class,
+                'Recall': recall_per_class,
+                'F1 Score': f1_per_class
+            })
+            # Create DataFrame to store average metrics
+            average_metrics_df = pd.DataFrame({
+                'Metric': ['Accuracy', 'Precision (macro)', 'Precision (micro)', 'Precision (weighted)', 
+                        'Recall (macro)', 'Recall (micro)', 'Recall (weighted)', 
+                        'F1 Score (macro)', 'F1 Score (micro)', 'F1 Score (weighted)'],
+                'Value': [accuracy_avg, precision_avg_macro, precision_avg_micro, precision_avg_weighted, 
+                        recall_avg_macro, recall_avg_micro, recall_avg_weighted, 
+                        f1_avg_macro, f1_avg_micro, f1_avg_weighted]
+            })
+                        
+            # export
+            GPTIntentClassifier.save_as_csv(custom_confusion_matrix, file_path=f'./model_evaluation/{self.classifier_type}_custom_confusion_matrix.csv')
+            GPTIntentClassifier.save_as_csv(metrics_per_class_df, file_path=f'./model_evaluation/{self.classifier_type}_metrics_per_class.csv')
+            GPTIntentClassifier.save_as_csv(average_metrics_df, file_path=f'./model_evaluation/{self.classifier_type}_average_metrics.csv')
             
-        return valid_res, invalid_res, accuracy, precision, recall, confusion_matrix
+        return valid_res, invalid_res, metrics_per_class_df, average_metrics_df
         
     
 def main():
