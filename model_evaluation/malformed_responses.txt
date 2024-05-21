@@ -4,3 +4,4 @@ Therefore, the corresponding labels would be: [0, 2, 16]
 bad response:  The most likely class labels for the given text are: [2, 5, 16]
  The text you provided relates to the intents: flight, airfare, and cheapest.
 Therefore, the corresponding labels would be: [0, 2, 16]
+bad response:  [text: [0, 5, 12]]
