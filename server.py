@@ -133,50 +133,53 @@ async def intent(query: Item = None):
         raise HTTPException(status_code=500, detail={"label": "INTERNAL_ERROR", "message": str(e)})
 
 def main():
-    # define arguments
-    arg_parser = argparse.ArgumentParser()
-    
-    # select classifier Class (e.g. 'GPT' or 'Bert', not used at the moment
-    arg_parser.add_argument('--classifier', type=str, default=os.getenv('classifier', default='GPT'), help='Classifier Class. Default: GPT')
-    
-    # model arguments 
-    arg_parser.add_argument('--model', type=str, default=os.getenv('model', default= 'gpt-3.5-turbo'), help='Model name. Default: gpt-3.5-turbo')
-    arg_parser.add_argument('--classifier_type', type=str, default=os.getenv('classifier_type', default='zero-shot'), help='few-shot or zero-shot. Default: zero-shot')
-    arg_parser.add_argument('--train_ds_path', type=str, default=os.getenv('train_ds_path', default='./data/atis/train.tsv'), help='Relative path to train tsv')
-    arg_parser.add_argument('--test_ds_path', type=str, default=os.getenv('test_ds_path', default='./data/atis/test.tsv'), help='Relative path to test tsv')
-    
-    # port 
-    arg_parser.add_argument('--port', type=int, default=os.getenv('PORT', 8080), help='Server port number. Default: 8080')
-    
-    # parse arguments
-    args = arg_parser.parse_args()
-    
-    # update model attributes
-    model.model_name = args.model
-    model.classifier_type = args.classifier_type
-    model.train_ds_path = args.train_ds_path
-    model.test_ds_path  = args.test_ds_path
-    
-    # print statements
-    print('\nclass (classifier): ', args.classifier)
-    print('model_name: ', model.model_name)
-    print('model_classifier_type: ', model.classifier_type)
-    print('model_train_ds_path: ', model.train_ds_path)
-    print('model.test_ds_path: ', model.test_ds_path)
-    print('\n')
-    
-    
-    # Prepare and evaluate the model
-    # Ensures that the server is only started when the model is successfully loaded
-    if model.load(test_size=40):
-        print('\nModel loaded successfully!\n')
-        print('\nStarting Server..\n')
-        # If the model is successfully loaded, run the server
-        uvicorn.run(app, host="0.0.0.0", port=args.port)
-    else:
-        # Server is not started 
-        # If loading fails, raise an HTTPException with an appropriate error message
-        raise HTTPException(status_code=500, detail="Model did not Load Successfully")
+    try: 
+        # define arguments
+        arg_parser = argparse.ArgumentParser()
+        
+        # select classifier Class (e.g. 'GPT' or 'Bert', not used at the moment
+        arg_parser.add_argument('--classifier', type=str, default=os.getenv('classifier', default='GPT'), help='Classifier Class. Default: GPT')
+        
+        # model arguments 
+        arg_parser.add_argument('--model', type=str, default=os.getenv('model', default= 'gpt-3.5-turbo'), help='Model name. Default: gpt-3.5-turbo')
+        arg_parser.add_argument('--classifier_type', type=str, default=os.getenv('classifier_type', default='zero-shot'), help='few-shot or zero-shot. Default: zero-shot')
+        arg_parser.add_argument('--train_ds_path', type=str, default=os.getenv('train_ds_path', default='./data/atis/train.tsv'), help='Relative path to train tsv')
+        arg_parser.add_argument('--test_ds_path', type=str, default=os.getenv('test_ds_path', default='./data/atis/test.tsv'), help='Relative path to test tsv')
+        
+        # port 
+        arg_parser.add_argument('--port', type=int, default=os.getenv('PORT', 8080), help='Server port number. Default: 8080')
+        
+        # parse arguments
+        args = arg_parser.parse_args()
+        
+        # update model attributes
+        model.model_name = args.model
+        model.classifier_type = args.classifier_type
+        model.train_ds_path = args.train_ds_path
+        model.test_ds_path  = args.test_ds_path
+        
+        # print statements
+        print('\nclass (classifier): ', args.classifier)
+        print('model_name: ', model.model_name)
+        print('model_classifier_type: ', model.classifier_type)
+        print('model_train_ds_path: ', model.train_ds_path)
+        print('model.test_ds_path: ', model.test_ds_path)
+        print('\n')
+        
+        
+        # Prepare and evaluate the model
+        # Ensures that the server is only started when the model is successfully loaded
+        if model.load(test_size=50):
+            print('\nModel loaded successfully!\n')
+            print('\nStarting Server..\n')
+            # If the model is successfully loaded, run the server
+            uvicorn.run(app, host="0.0.0.0", port=args.port)
+        else:
+            # Server is not started 
+            # If loading fails, raise an HTTPException with an appropriate error message
+            raise HTTPException(status_code=500, detail="Model did not Load Successfully")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"label": "INTERNAL_ERROR", "message": str(e)})
 
 if __name__ == '__main__':
     main()
