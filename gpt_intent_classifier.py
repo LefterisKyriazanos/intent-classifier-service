@@ -912,8 +912,9 @@ class GPTIntentClassifier(IntentClassifier):
            
             # Prepare Data
             # Remove items from actual_intents where response was invalid
-            for pos in positions:
-                del actual_intents[pos]
+            if positions:
+                for pos in sorted(positions, reverse=True): # delete from back to front, preventing unwanted index shifting
+                    del actual_intents[pos]
             
             # Extract the label values
             # eg. extract ['flight', 'airfare', 'ground_service'] for each test query 
