@@ -1,0 +1,11 @@
+,Metric,Value
+0,Accuracy,0.9398584905660378
+1,Precision (macro),0.28789160898471944
+2,Precision (micro),0.31955922865013775
+3,Precision (weighted),0.7881533570610054
+4,Recall (macro),0.7747433131587829
+5,Recall (micro),0.9409038238702202
+6,Recall (weighted),0.9409038238702202
+7,F1 Score (macro),0.3516777022838916
+8,F1 Score (micro),0.4770857814336075
+9,F1 Score (weighted),0.8292840890426973
