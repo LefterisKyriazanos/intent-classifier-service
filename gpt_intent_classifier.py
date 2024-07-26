@@ -289,7 +289,7 @@ class GPTIntentClassifier(IntentClassifier):
     @staticmethod
     def preprocess_text(input_text: str) -> str:
         """
-        Preprocesses the input text by tokenizing, removing stopwords, and removing special characters.
+        Preprocesses the input text by stripping and removing special characters.
 
         Parameters:
         input_text (str): The input text to preprocess.
@@ -298,16 +298,16 @@ class GPTIntentClassifier(IntentClassifier):
         str: The preprocessed text.
         """
         
-        # strip() leading and trailing spaces
+        # strip leading and trailing spaces
         input_text_trimmed = input_text.strip()
         
         # Tokenize the input text
-        tokenized_text = nltk.word_tokenize(input_text_trimmed)
+        # tokenized_text = nltk.word_tokenize(input_text_trimmed)
         
         # Remove stopwords and special characters
-        stop_words = set(stopwords.words('english'))
+        # stop_words = set(stopwords.words('english'))
         special_characters = set(string.punctuation)
-        preprocessed_text = [word for word in tokenized_text if word.lower() not in stop_words and word not in special_characters]
+        preprocessed_text = [word for word in input_text_trimmed if word.lower() not in special_characters]
         
         # Join the words back into sentences
         preprocessed_text = ' '.join(preprocessed_text)
@@ -537,7 +537,7 @@ class GPTIntentClassifier(IntentClassifier):
             # preprocess input
             processed_text = GPTIntentClassifier.preprocess_text(text)
             # Use the GPT model to classify the intent of the prompt
-            prompt = self.construct_prompt_from_template(text_to_classify=processed_text)
+            prompt = self.construct_prompt_from_template(text_to_classify=text)
 
             # expecting python-like list response of 3 integers
             pred_labels = self.get_prediction_labels(prompt=prompt)
